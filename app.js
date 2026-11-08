@@ -10,7 +10,8 @@ const CFG={
   teams:[{name:'Team Mac & Cheese',emoji:'🧀'},{name:'Team Rice & Peas',emoji:'🍚'}],
   multipliers:[1,1,2,3],
   fmTimes:[20,25],
-  fmTarget:200
+  fmTarget:200,
+  plan:{3:/Bubb always loses/i,4:/Schatze & Lightweight/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
 
@@ -650,7 +651,9 @@ async function hostMain(){
     if(!S)return;
     const ph=S.phase,unused=Q.filter(q=>q.section==='main'&&!S.used.includes(q.id));
     let status='',actions='',board='';
-    const roundPick=`<label class="field">Question for round ${typeof S.round==='number'?S.round+1:''}<select id="qsel">${unused.map(q=>`<option value="${q.id}">${esc(q.prompt)}</option>`).join('')}</select></label>`;
+    const nextR=typeof S.round==='number'?S.round+1:1,planRe=CFG.plan[nextR],reserved=Object.entries(CFG.plan).filter(([r])=>+r>nextR).map(([,re])=>re);
+    const pref=(planRe&&unused.find(q=>planRe.test(q.prompt)))||unused.find(q=>!reserved.some(re=>re.test(q.prompt)))||unused[0];
+    const roundPick=`<label class="field">Question for round ${nextR}<select id="qsel">${unused.map(q=>`<option value="${q.id}" ${pref&&q.id===pref.id?'selected':''}>${esc(q.prompt)}</option>`).join('')}</select></label>`;
     if(ph==='lobby'){status=`${S.order.length} player${S.order.length===1?'':'s'} joined. Start when everyone's in.`;actions=`${roundPick}<button class="btn gold block" data-c="start" ${S.order.length<2?'disabled':''}>▶ Start round 1</button>`}
     else if(['faceoff','play','steal','finale'].includes(ph)){
       status={faceoff:S.face&&S.face.buzzed?`${pname(S.face.buzzed)} buzzed. Waiting for their pick.`:`Faceoff: ${pname(S.face&&S.face.ids[0])} vs ${pname(S.face&&S.face.ids[1])}`,
