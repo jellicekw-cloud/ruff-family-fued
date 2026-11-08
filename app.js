@@ -8,10 +8,10 @@ const CFG={
   room:'RUFF',
   pin:'1126',
   teams:[{name:'Team Mac & Cheese',emoji:'🧀'},{name:'Team Rice & Peas',emoji:'🍚'}],
-  multipliers:[1,1,2,3],
+  multipliers:[1,1,2,3,3],
   fmTimes:[20,25],
   fmTarget:200,
-  plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i} /* default question for these rounds */
+  plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i,5:/Chicken most likely retire/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
 
@@ -670,8 +670,8 @@ async function hostMain(){
       ${ph!=='finale'?`<details class="acc"><summary>More</summary><div class="acc-body"><div class="row"><button class="btn small" data-c="award" data-t="0">Give bank to ${tName(0)}</button><button class="btn small" data-c="award" data-t="1">Give bank to ${tName(1)}</button></div></div></details>`:''}`;
     }
     else if(ph==='roundEnd'){status=`${tName(S.win.team)} ${S.win.stolen?'stole':'won'} ${S.win.bank}.`;
-      const more=S.round<4;actions=`${S.board.some(b=>!b.revealed)?'<button class="btn block" data-c="revealRest">👀 Show the answers nobody got</button><div style="height:10px"></div>':''}
-      ${more?`${roundPick}<button class="btn gold block" data-c="next">▶ Start round ${S.round+1}${[0,0,2,3][S.round]?` (${S.round+1===3?'double':'triple'} points)`:''}</button>`:`<button class="btn gold block" data-c="finale">🌍 Start the big vote</button>`}`}
+      const more=S.round<CFG.multipliers.length,nm=CFG.multipliers[S.round]||1;actions=`${S.board.some(b=>!b.revealed)?'<button class="btn block" data-c="revealRest">👀 Show the answers nobody got</button><div style="height:10px"></div>':''}
+      ${more?`${roundPick}<button class="btn gold block" data-c="next">▶ Start round ${S.round+1}${nm>1?` (${nm===2?'double':'triple'} points)`:''}</button>`:`<button class="btn gold block" data-c="finale">🌍 Start the big vote</button>`}`}
     else if(ph==='finaleEnd'){const team=S.teams[0].score>=S.teams[1].score?0:1,ps=S.order.filter(id=>S.players[id]&&S.players[id].team===team);
       status=`Next trip: ${esc(S.trip)}! Fast Money goes to ${tName(team)}.`;
       actions=`<label class="field">Player 1<select id="fm1">${ps.map((id,i)=>`<option value="${id}" ${i===0?'selected':''}>${pname(id)}</option>`).join('')}</select></label>
