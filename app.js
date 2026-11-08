@@ -93,12 +93,13 @@ const STARTER=[
  {section:'fast',prompt:'Name a word you would use to describe really good food.',answers:A(['Delicious',35],["Bussin'",25],['Fire',18],['Yummy',12],['Slaps',10]),decoys:['Tasty','Amazing','Scrumptious','Divine','Perfect','Lit']}
 ];
 const EXTRA=[
+ {section:'main',kind:'vote',max_answers:1,prompt:'How many times a week do Schatze & Lightweight break up?',options:['Never, they\'re solid 💕','Once','2 or 3 times','Every other day','Daily, like clockwork',"I've lost count 🤣"],answers:A(["I've lost count 🤣",30],['Daily, like clockwork',24],['2 or 3 times',18],['Every other day',14],['Once',8],['Never, they\'re solid 💕',6]),decoys:['Twice a day','Only on holidays','Every weekend','Once a month','Hourly','Only when the phone dies']},
  {section:'main',prompt:'Name something Bubb always loses on a trip.',answers:A(['Phone charger',30],['AirPods',22],['Sunglasses',16],['Room key',12],['ID',10],['Wallet',10]),decoys:['Passport','Boarding pass','Hat','Jacket','Luggage','His mind','Keys','Toothbrush']}
 ];
 async function ensureExtras(Q){
   let added=0;
   for(const x of EXTRA){if(Q.some(q=>q.prompt===x.prompt))continue;const pos=Math.max(0,...Q.filter(q=>q.section==='main').map(q=>q.position))+1;
-    const {error}=await sb.from('feud_questions').insert({position:pos,section:x.section,prompt:x.prompt,kind:'open',max_answers:2,options:[],answers:x.answers,decoys:x.decoys,use_survey:true,merges:{},labels:{}});if(!error)added++}
+    const {error}=await sb.from('feud_questions').insert({position:pos,section:x.section,prompt:x.prompt,kind:x.kind||'open',max_answers:x.max_answers||2,options:x.options||[],answers:x.answers,decoys:x.decoys,use_survey:true,merges:{},labels:{}});if(!error)added++}
   return added;
 }
 async function addStarter(){
