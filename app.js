@@ -215,6 +215,7 @@ function homePage(){
 /* ============ Survey ============ */
 async function surveyPage(){
   app().innerHTML=`<div class="wrap"><p class="muted">Loading the survey…</p></div>`;
+  window.scrollTo(0,0);
   let qs;try{qs=(await loadQuestions())}catch(e){app().innerHTML=`<div class="wrap"><div class="card">Could not load the survey. ${esc(e.message)}</div></div>`;return}
   const order={main:0,fast:1,finale:2};qs=qs.sort((a,b)=>order[a.section]-order[b.section]||a.position-b.position);
   if(!qs.length){app().innerHTML=`<div class="wrap"><div class="card">The survey isn't ready yet. Check back soon!</div></div>`;return}
@@ -258,7 +259,7 @@ async function surveyPage(){
         const rows=qs.filter(q=>(st.ans[q.id]||[]).length).map(q=>({question_id:q.id,respondent:st.name,answers:st.ans[q.id]}));
         const {error}=await sb.from('feud_responses').insert(rows);if(error)throw error;
         ls.set('survey',{name:st.name,i:-1,ans:{}});ls.set('surveyDone',st.name);
-        app().innerHTML=`<div class="wrap" style="text-align:center;padding-top:50px"><div style="font-size:70px">🎉</div><h1 class="title" style="font-size:38px">Thank you, ${esc(st.name)}!</h1><p class="muted" style="font-size:18px">Your answers are in. See you at Thanksgiving. Now keep it a secret! 🤫</p></div>`;confetti();
+        app().innerHTML=`<div class="wrap" style="text-align:center;padding-top:50px"><div style="font-size:70px">🎉</div><h1 class="title" style="font-size:38px">Thank you, ${esc(st.name)}!</h1><p class="muted" style="font-size:18px">Your answers are in. See you at Thanksgiving. Now keep it a secret! 🤫</p><p class="faint" style="font-size:14px">Want to change something? Take it again with the same name and your new answers replace these.</p><div class="row" style="justify-content:center;margin-top:18px"><a class="btn small" href="#">‹ Home</a><button class="btn small" id="again">Take it again</button></div></div>`;confetti();$('#again').onclick=()=>{ls.set('survey',{name:st.name,i:0,ans:{}});surveyPage()};
       }catch(e){$('#e').textContent='Could not send: '+e.message+'. Try again.';b.disabled=false;b.textContent='📨 Send my answers'}};
   }
   draw();
