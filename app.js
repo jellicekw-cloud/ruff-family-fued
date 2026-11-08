@@ -92,8 +92,17 @@ const STARTER=[
  {section:'fast',prompt:'Name something in your junk drawer.',answers:A(['Batteries',30],['Rubber bands',22],['Pens',18],['Takeout menus',12],['Tape',10],['Old keys',8]),decoys:['Scissors','Coupons','Lighters','Twist ties','Screwdriver','Chargers']},
  {section:'fast',prompt:'Name a word you would use to describe really good food.',answers:A(['Delicious',35],["Bussin'",25],['Fire',18],['Yummy',12],['Slaps',10]),decoys:['Tasty','Amazing','Scrumptious','Divine','Perfect','Lit']}
 ];
+const EXTRA=[
+ {section:'main',prompt:'Name something Bubb always loses on a trip.',answers:A(['Phone charger',30],['AirPods',22],['Sunglasses',16],['Room key',12],['ID',10],['Wallet',10]),decoys:['Passport','Boarding pass','Hat','Jacket','Luggage','His mind','Keys','Toothbrush']}
+];
+async function ensureExtras(Q){
+  let added=0;
+  for(const x of EXTRA){if(Q.some(q=>q.prompt===x.prompt))continue;const pos=Math.max(0,...Q.filter(q=>q.section==='main').map(q=>q.position))+1;
+    const {error}=await sb.from('feud_questions').insert({position:pos,section:x.section,prompt:x.prompt,kind:'open',max_answers:2,options:[],answers:x.answers,decoys:x.decoys,use_survey:true,merges:{},labels:{}});if(!error)added++}
+  return added;
+}
 async function addStarter(){
-  const rows=STARTER.map((q,i)=>({position:i+1,section:q.section,prompt:q.prompt,kind:q.kind||'open',max_answers:q.max_answers||2,options:q.options||[],answers:q.answers,decoys:q.decoys,use_survey:true,merges:{},labels:{}}));
+  const rows=[...STARTER,...EXTRA].map((q,i)=>({position:i+1,section:q.section,prompt:q.prompt,kind:q.kind||'open',max_answers:q.max_answers||2,options:q.options||[],answers:q.answers,decoys:q.decoys,use_survey:true,merges:{},labels:{}}));
   const {error}=await sb.from('feud_questions').insert(rows);if(error)throw error;
 }
 
@@ -111,6 +120,10 @@ const ALIASES={
   'overslept':['overslept','oversleep','slept','alarm','woke up late','sleep'],
   'wrong gate':['wrong gate','gate change','wrong terminal','gate'],
   'lost id':['lost id','lost my id','no id','forgot id','license','lost wallet'],
+  'airpods':['airpod','air pod','earbud','ear bud','headphone','earphone','beats'],
+  'room key':['room key','key card','keycard','hotel key'],
+  'phone charger':['charger','charging cable','cord','charging block'],
+  'id':['id','license','drivers license','identification'],
   'grab a drink':['drink','drinks','bar','cocktail','beer','wine'],
   'go smoke':['smoke','smoking','cigarette','vape'],
   'go to the restroom':['restroom','bathroom','toilet','potty'],
@@ -283,7 +296,7 @@ function adminPage(){pinGate(adminMain)}
 async function adminMain(){
   app().innerHTML=`<div class="wrap"><p class="muted">Loading…</p></div>`;
   let Q=[],R=[];
-  try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()])}catch(e){app().innerHTML=`<div class="wrap"><div class="card"><b>Can't reach the database.</b><p class="muted">${esc(e.message)}</p><p class="muted">If this is the first time, run the setup script in Supabase first.</p></div></div>`;return}
+  try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()]);if(Q.length&&await ensureExtras(Q))Q=await loadQuestions()}catch(e){app().innerHTML=`<div class="wrap"><div class="card"><b>Can't reach the database.</b><p class="muted">${esc(e.message)}</p><p class="muted">If this is the first time, run the setup script in Supabase first.</p></div></div>`;return}
   const open=new Set(ls.get('adminOpen',[]));
   const keepOpen=()=>{const s=[...document.querySelectorAll('details.acc[open]')].map(d=>d.dataset.k).filter(Boolean);open.clear();s.forEach(k=>open.add(k));ls.set('adminOpen',s)};
   const SEC={main:'Rounds (4 get played)',finale:'Finale: the big vote',fast:'Fast Money'};
