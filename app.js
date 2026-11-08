@@ -11,7 +11,7 @@ const CFG={
   multipliers:[1,1,2,3],
   fmTimes:[20,25],
   fmTarget:200,
-  plan:{3:/Bubb always loses/i,4:/Schatze & Lightweight/i} /* default question for these rounds */
+  plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
 
@@ -94,6 +94,8 @@ const STARTER=[
  {section:'fast',prompt:'Name a word you would use to describe really good food.',answers:A(['Delicious',35],["Bussin'",25],['Fire',18],['Yummy',12],['Slaps',10]),decoys:['Tasty','Amazing','Scrumptious','Divine','Perfect','Lit']}
 ];
 const EXTRA=[
+ {section:'main',kind:'vote',max_answers:1,prompt:"Who's giving Jae her first grandbaby?",options:['Schatze','Bubb','Shots','Nobody, stop asking! 🤣'],answers:A(['Nobody, stop asking! 🤣',40],['Schatze',25],['Bubb',20],['Shots',15]),decoys:['Chicken','Thor','Lightweight','The neighbor','Lil Bit']},
+ {section:'main',kind:'vote',max_answers:1,prompt:"Jae's first grandbaby will be…",options:['A boy 💙','A girl 💗','Twins 👯','Triplets 😱','A grand-puppy instead 🐶'],answers:A(['A grand-puppy instead 🐶',30],['A girl 💗',25],['A boy 💙',22],['Twins 👯',15],['Triplets 😱',8]),decoys:['Quadruplets','A goldfish','A surprise!','A grand-kitten','Nothing, ever']},
  {section:'main',kind:'vote',max_answers:1,prompt:'How many times a week do Schatze & Lightweight break up?',options:['Never, they\'re solid 💕','Once','2 or 3 times','Every other day','Daily, like clockwork',"I've lost count 🤣"],answers:A(["I've lost count 🤣",30],['Daily, like clockwork',24],['2 or 3 times',18],['Every other day',14],['Once',8],['Never, they\'re solid 💕',6]),decoys:['Twice a day','Only on holidays','Every weekend','Once a month','Hourly','Only when the phone dies']},
  {section:'main',prompt:'Name something Bubb always loses on a trip.',answers:A(['Phone charger',30],['AirPods',22],['Sunglasses',16],['Room key',12],['ID',10],['Wallet',10]),decoys:['Passport','Boarding pass','Hat','Jacket','Luggage','His mind','Keys','Toothbrush']}
 ];
