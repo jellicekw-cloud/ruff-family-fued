@@ -55,7 +55,17 @@ function mockClient(){
 const sb=MOCK?mockClient():window.supabase.createClient(CFG.url,CFG.key,{realtime:{params:{eventsPerSecond:30}}});
 
 /* ============ Data ============ */
-async function loadQuestions(){const {data,error}=await sb.from('feud_questions').select('*').order('position');if(error)throw error;return data||[]}
+async function loadQuestions(){
+  const {data,error}=await sb.from('feud_questions').select('*').order('position');if(error)throw error;
+  const qs=data||[];
+  for(const q of qs){ /* one-time upgrade: song + party questions become pick-your-top-2 */
+    if(q.kind!=='open')continue;
+    const st=STARTER.find(x=>x.kind==='vote'&&x.section==='main'&&x.prompt===q.prompt);if(!st)continue;
+    const up={kind:'vote',max_answers:st.max_answers,options:st.options,answers:st.answers,decoys:st.decoys};
+    try{await sb.from('feud_questions').update(up).eq('id',q.id);Object.assign(q,up)}catch(_e){}
+  }
+  return qs;
+}
 async function loadResponses(){const {data,error}=await sb.from('feud_responses').select('*');if(error)throw error;return data||[]}
 async function saveQuestion(q){const {id,...rest}=q;const {error}=id?await sb.from('feud_questions').update(rest).eq('id',id):await sb.from('feud_questions').insert(rest);if(error)throw error}
 
@@ -73,8 +83,8 @@ const STARTER=[
  {section:'main',prompt:"Name something that's always missing when you need it.",answers:A(['TV remote',38],['Keys',25],['Phone charger',16],['Scissors',9],['Glasses',7],['Tape',5]),decoys:['Pen','Wallet','Lighter','Hair tie','Batteries','Socks']},
  {section:'main',prompt:'Name a chore the kids refuse to do.',answers:A(['Dishes',40],['Cleaning the bathroom',25],['Taking out the trash',15],['Laundry',12],['Cleaning their room',8]),decoys:['Vacuuming','Walking the dog','Mopping','Dusting','Cooking','Folding clothes']},
  {section:'main',prompt:'Name something people do at a family cookout.',answers:A(['Eat',30],['Play spades',22],['Dance',16],['Gossip',12],['Grill',12],['Play music',8]),decoys:['Swim','Play dominoes','Take pictures','Argue','Sleep','Play cornhole']},
- {section:'main',prompt:'Name a song that gets everybody on the dance floor.',answers:A(['Electric Slide',34],['Cupid Shuffle',26],['Wobble',18],['Before I Let Go',12],['Cha Cha Slide',10]),decoys:['Candy','September','Uptown Funk','Shout','Macarena','Single Ladies']},
- {section:'main',prompt:'Name something that makes a party turn up.',answers:A(['The DJ',38],['Drinks',22],['Food',16],['Dancing',12],['Family drama',7],['Karaoke',5]),decoys:['Balloons','Games','A photo booth','Fireworks','The guest of honor','A live band']},
+ {section:'main',kind:'vote',max_answers:2,prompt:'Name a song that gets everybody on the dance floor.',options:['Electric Slide','Cupid Shuffle','Wobble','Before I Let Go','Cha Cha Slide','Candy'],answers:A(['Electric Slide',30],['Before I Let Go',24],['Cupid Shuffle',18],['Wobble',12],['Cha Cha Slide',9],['Candy',7]),decoys:['September','Uptown Funk','Shout','Macarena','Single Ladies','Hot in Herre']},
+ {section:'main',kind:'vote',max_answers:2,prompt:'Name something that makes a party turn up.',options:['The DJ','Drinks','Food','Dancing','Family drama','Karaoke','Good vibes','The guest list'],answers:A(['The DJ',30],['Drinks',22],['Food',16],['Dancing',12],['Good vibes',11],['Family drama',9]),decoys:['Balloons','Games','A photo booth','Fireworks','The guest of honor','A live band']},
  {section:'finale',kind:'vote',max_answers:1,prompt:'Where should our next family trip be?',options:['Amsterdam','Hawaii','Paris'],answers:A(['Amsterdam',34],['Hawaii',33],['Paris',33]),decoys:['Tokyo','London','Jamaica','Cancún','Dubai']},
  {section:'fast',prompt:'Name a Thanksgiving dessert.',answers:A(['Sweet potato pie',40],['Peach cobbler',22],['Banana pudding',15],['Pound cake',13],['Pecan pie',10]),decoys:['Apple pie','Cheesecake','Red velvet cake','Brownies','Ice cream']},
  {section:'fast',prompt:'Name something you bring to a potluck.',answers:A(['Mac & cheese',30],['Dessert',25],['Drinks',18],['Chips',12],['Paper plates',9],['Potato salad',6]),decoys:['Ice','Napkins','Bread','Fruit tray','Wings','Salad']},
@@ -135,8 +145,9 @@ function boardFor(q,responses){
   if(useSurvey){
     const top=groups.filter(g=>g.count>0).slice(0,6);const sum=top.reduce((n,g)=>n+g.count,0)||1;
     let answers=top.map(g=>({text:g.label,points:Math.max(1,Math.round(g.count/sum*100))}));
-    if(q.kind==='vote')answers=groups.slice(0,6).map(g=>({text:g.label,points:Math.round(g.count/Math.max(1,total)*100)}));
-    const taken=top.flatMap(g=>[g.key,...g.variants.map(norm)]);
+    if(q.kind==='vote')answers=groups.filter(g=>g.count>0||q.section==='finale').slice(0,6).map(g=>({text:g.label,points:Math.round(g.count/Math.max(1,total)*100)}));
+    const takenV=q.kind==='vote'?groups.filter(g=>g.count>0).slice(0,6).map(g=>norm(g.label)):null;
+    const taken=takenV||top.flatMap(g=>[g.key,...g.variants.map(norm)]);
     return {answers,source:'survey',thin,people,total,taken};
   }
   return {answers:(q.answers||[]).slice(0,6),source:'placeholder',thin,people,total};
@@ -235,13 +246,15 @@ async function surveyPage(){
     if(st.i>=qs.length)return drawReview();
     const q=qs[st.i],cur=st.ans[q.id]||[],n=Math.max(1,q.max_answers||1),pct=Math.round(st.i/qs.length*100);
     const body=q.kind==='vote'
-      ?`<p class="muted">Pick one. Your vote is secret! 🤫</p>${(q.options||[]).map(o=>`<button class="vote-opt ${cur[0]===o?'on':''}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}`
+      ?`<p class="muted">${n>1?`Pick your top ${n}.`:'Pick one.'} Your vote is secret! 🤫</p>${(q.options||[]).map(o=>`<button class="vote-opt ${cur.includes(o)?'on':''}" data-v="${esc(o)}">${cur.includes(o)?'✓ ':''}${esc(o)}</button>`).join('')}`
       :`<p class="muted">${n>1?`Give up to ${n} answers.`:'Give one answer.'}</p>${Array.from({length:n},(_,k)=>`<label class="field">${n>1?'Answer '+(k+1)+(k?' (optional)':''):'Your answer'}<input class="ans" data-k="${k}" value="${esc(cur[k]||'')}" autocomplete="off"></label>`).join('')}`;
     app().innerHTML=`<div class="wrap"><div class="row"><span class="muted">${esc(st.name)}</span><span class="spacer"></span><span class="muted">${st.i+1} of ${qs.length}</span></div>
     <div class="progress"><i style="width:${pct}%"></i></div>
     <div class="card"><div class="q-prompt">${esc(q.prompt)}</div>${body}<div class="err" id="e"></div></div>
     <div class="row"><button class="btn" id="back">‹ Back</button><span class="spacer"></span><button class="btn gold" id="next">${st.i===qs.length-1?'Review':'Next ›'}</button></div></div>`;
-    document.querySelectorAll('.vote-opt').forEach(b=>b.onclick=()=>{st.ans[q.id]=[b.dataset.v];saveDraft();draw()});
+    document.querySelectorAll('.vote-opt').forEach(b=>b.onclick=()=>{const v=b.dataset.v,c=(st.ans[q.id]||[]).slice();
+      if(c.includes(v))c.splice(c.indexOf(v),1);else if(n===1)c.splice(0,c.length,v);else if(c.length<n)c.push(v);else{const e=$('#e');if(e)e.textContent=`You can pick ${n}. Tap one to unpick it first.`;return}
+      st.ans[q.id]=c;saveDraft();draw()});
     const collect=()=>{if(q.kind==='vote')return st.ans[q.id]||[];return [...document.querySelectorAll('.ans')].map(i=>i.value.trim()).filter(Boolean)};
     $('#back').onclick=()=>{if(q.kind!=='vote')st.ans[q.id]=collect();st.i--;saveDraft();draw()};
     $('#next').onclick=()=>{const a=collect();if(!a.length){$('#e').textContent=q.kind==='vote'?'Pick one to keep going.':'Type at least one answer.';return}st.ans[q.id]=a;st.i++;saveDraft();draw()};
@@ -293,7 +306,7 @@ async function adminMain(){
      <label class="row" style="margin-top:14px;gap:8px"><input type="checkbox" data-act="usesurvey" data-q="${q.id}" ${q.use_survey!==false?'checked':''} style="width:20px;height:20px"> Use survey answers when they're ready</label>
      <div class="sec-label">Edit question</div>
      <label class="field">Question<input data-f="prompt" data-q="${q.id}" value="${esc(q.prompt)}"></label>
-     ${q.kind==='vote'?`<label class="field">Choices (one per line)<textarea data-f="options" data-q="${q.id}">${esc((q.options||[]).join('\n'))}</textarea></label>`:
+     ${q.kind==='vote'?`<label class="field">Picks per person<select data-f="max_answers" data-q="${q.id}">${[1,2,3].map(n=>`<option ${n===(q.max_answers||1)?'selected':''}>${n}</option>`).join('')}</select></label><label class="field">Choices (one per line)<textarea data-f="options" data-q="${q.id}">${esc((q.options||[]).join('\n'))}</textarea></label>`:
       `<label class="field">Answers per person in the survey<select data-f="max_answers" data-q="${q.id}">${[1,2,3].map(n=>`<option ${n===(q.max_answers||2)?'selected':''}>${n}</option>`).join('')}</select></label>
       <label class="field">Placeholder answers (one per line: answer | points)<textarea data-f="answers" data-q="${q.id}">${esc((q.answers||[]).map(a=>a.text+' | '+a.points).join('\n'))}</textarea></label>`}
      <label class="field">Fake answers for the phones (one per line)<textarea data-f="decoys" data-q="${q.id}">${esc((q.decoys||[]).join('\n'))}</textarea></label>
@@ -331,7 +344,7 @@ ${surveyUrl}</div>
       const val=f=>{const i=document.querySelector(`[data-f="${f}"][data-q="${q.id}"]`);return i?i.value:null};
       const obj={prompt:val('prompt').trim(),decoys:val('decoys').split('\n').map(s=>s.trim()).filter(Boolean)};
       if(!obj.prompt){toast('The question needs words');return}
-      if(q.kind==='vote')obj.options=val('options').split('\n').map(s=>s.trim()).filter(Boolean);
+      if(q.kind==='vote'){obj.options=val('options').split('\n').map(s=>s.trim()).filter(Boolean);obj.max_answers=+val('max_answers')||1}
       else{obj.max_answers=+val('max_answers');obj.answers=val('answers').split('\n').map(l=>{const [t,p]=l.split('|');return {text:(t||'').trim(),points:Math.max(1,parseInt(p)||1)}}).filter(a=>a.text).slice(0,6)}
       await patch(q,obj,'Saved ✓');
     }
