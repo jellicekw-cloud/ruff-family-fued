@@ -16,21 +16,21 @@ const MOCK=/[?&]mock=1/.test(location.search);
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const uid=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36);
 const KEYS='ABCDEFGHIJKL'.split('');
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),2600)}
-const ls={get(k,d){try{const v=localStorage.getItem('rff_'+k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem('rff_'+k,JSON.stringify(v))}catch{}}};
-const ss={get(k){try{return sessionStorage.getItem('rff_'+k)}catch{return null}},set(k,v){try{sessionStorage.setItem('rff_'+k,v)}catch{}}};
+const ls={get(k,d){try{const v=localStorage.getItem('rff_'+k);return v==null?d:JSON.parse(v)}catch(_e){return d}},set(k,v){try{localStorage.setItem('rff_'+k,JSON.stringify(v))}catch(_e){}}};
+const ss={get(k){try{return sessionStorage.getItem('rff_'+k)}catch(_e){return null}},set(k,v){try{sessionStorage.setItem('rff_'+k,v)}catch(_e){}}};
 function hash(str){let h=2166136261;for(const c of String(str)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 function shuffle(arr,seed){const a=arr.slice();let s=hash(seed)||1;for(let i=a.length-1;i>0;i--){s=(Math.imul(s,1664525)+1013904223)>>>0;const j=s%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
-const pstore=MOCK?{get(k,d){try{const v=sessionStorage.getItem('rffp_'+k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{sessionStorage.setItem('rffp_'+k,JSON.stringify(v))}catch{}}}:ls;
+const pstore=MOCK?{get(k,d){try{const v=sessionStorage.getItem('rffp_'+k);return v==null?d:JSON.parse(v)}catch(_e){return d}},set(k,v){try{sessionStorage.setItem('rffp_'+k,JSON.stringify(v))}catch(_e){}}}:ls;
 function myId(){let id=pstore.get('pid');if(!id){id=uid();pstore.set('pid',id)}return id}
 const siteBase=()=>location.origin+location.pathname.replace(/index\.html$/,'');
 
 /* ============ Mock backend (for testing: add ?mock=1) ============ */
 function mockClient(){
-  const k=t=>'rffmock_'+t,read=t=>{try{return JSON.parse(localStorage.getItem(k(t))||'[]')}catch{return []}},write=(t,r)=>localStorage.setItem(k(t),JSON.stringify(r));
+  const k=t=>'rffmock_'+t,read=t=>{try{return JSON.parse(localStorage.getItem(k(t))||'[]')}catch(_e){return []}},write=(t,r)=>localStorage.setItem(k(t),JSON.stringify(r));
   function from(table){
     let op='select',payload=null,filters=[],ord=null,single=false;
     const api={select(){return api},order(c){ord=c;return api},eq(c,v){filters.push(r=>r[c]===v);return api},
@@ -160,7 +160,7 @@ function joinChannel(onEvent){
 
 /* ============ Sound + confetti ============ */
 let AC=null;
-function audio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume()}catch{}return AC}
+function audio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume()}catch(_e){}return AC}
 function tone(f,d,type='sine',vol=.25,when=0){const ac=audio();if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(vol,ac.currentTime+when);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+when+d);o.connect(g).connect(ac.destination);o.start(ac.currentTime+when);o.stop(ac.currentTime+when+d)}
 const SFX={
   ding(){tone(880,.5,'sine',.3);tone(1320,.6,'sine',.2,.08)},
@@ -183,7 +183,7 @@ function confetti(ms=3500){
 const app=()=>$('#app');
 let cleanup=null;
 function route(){
-  if(cleanup){try{cleanup()}catch{}cleanup=null}
+  if(cleanup){try{cleanup()}catch(_e){}cleanup=null}
   const r=(location.hash||'#').slice(1).split('?')[0];
   ({'':homePage,tv:tvPage,host:hostPage,join:joinPage,survey:surveyPage,admin:adminPage}[r]||homePage)();
 }
@@ -323,7 +323,7 @@ ${surveyUrl}</div>
     const el=ev.target.closest('[data-act]');if(!el||el.tagName==='SELECT'||el.type==='checkbox')return;
     const q=el.dataset.q&&getQ(el.dataset.q),act=el.dataset.act;
     if(act==='starter'){el.disabled=true;try{await addStarter();toast('Starter questions added 🎉');await reload()}catch(e){toast('Failed: '+e.message);el.disabled=false}}
-    if(act==='copy'){const t=$('#msg').textContent;try{await navigator.clipboard.writeText(t);toast('Copied! Paste it in the family text 📋')}catch{toast('Select the message and copy it')}}
+    if(act==='copy'){const t=$('#msg').textContent;try{await navigator.clipboard.writeText(t);toast('Copied! Paste it in the family text 📋')}catch(_e){toast('Select the message and copy it')}}
     if(act==='rename'){const g=el.dataset.g,cur=(q.labels||{})[g]||'';const v=prompt('What should this answer say on the board?',cur||el.closest('.group-row').firstElementChild.firstChild.textContent.trim());if(v===null)return;const labels={...(q.labels||{})};if(v.trim())labels[g]=v.trim();else delete labels[g];await patch(q,{labels},'Renamed')}
     if(act==='unmerge')await patch(q,{merges:{}},'Merges undone');
     if(act==='force'){const labels={...(q.labels||{})};if(el.dataset.v==='1')labels.__force=true;else delete labels.__force;await patch(q,{labels},el.dataset.v==='1'?'Using survey answers':'Using placeholder answers')}
@@ -360,7 +360,7 @@ function tvPage(){
     $('#tvmsg').textContent='Connecting…';
     try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()])}catch(e){$('#tvmsg').textContent='Could not reach the game database: '+e.message;return}
     if(!Q.length){$('#tvmsg').textContent='No questions yet. Add them on the host phone under Questions & survey results.';return}
-    try{const {data}=await sb.from('feud_state').select('*').eq('room',CFG.room).maybeSingle();if(data&&data.state&&Date.now()-(data.state._t||0)<12*3600e3)S=data.state}catch{}
+    try{const {data}=await sb.from('feud_state').select('*').eq('room',CFG.room).maybeSingle();if(data&&data.state&&Date.now()-(data.state._t||0)<12*3600e3)S=data.state}catch(_e){}
     if(!S)S=fresh();
     evn=S.ev?S.ev.n:0;lastEv=evn;
     ch=joinChannel(onEvent);await ch.ready;started=true;
@@ -381,7 +381,7 @@ function tvPage(){
     S.face={ids:[a,b],buzzed:null,tried:[]};S.active=null;S.phase='faceoff';
   }
   async function startRound(qid){
-    try{R=await loadResponses();Q=await loadQuestions()}catch{}
+    try{R=await loadResponses();Q=await loadQuestions()}catch(_e){}
     const q=qid?Q.find(x=>x.id===qid):Q.filter(x=>x.section==='main'&&!S.used.includes(x.id))[0];
     if(!q)return;
     S.round++;S.mult=CFG.multipliers[S.round-1]||3;S.used.push(q.id);
@@ -410,7 +410,7 @@ function tvPage(){
   function award(t,stolen){S.teams[t].score+=S.bank;S.win={team:t,bank:S.bank,stolen};S.phase='roundEnd';S.active=null;S.face=null;setEv('win');push()}
   function pick(key){const o=S.opts.find(x=>x.key===key);if(!o||S.picked.includes(key))return;S.picked.push(key);if(o.real)right(o.idx);else wrong()}
   async function startFinale(){
-    try{R=await loadResponses();Q=await loadQuestions()}catch{}
+    try{R=await loadResponses();Q=await loadQuestions()}catch(_e){}
     const q=Q.find(x=>x.section==='finale');if(!q){toast('No finale question');return}
     const b=boardFor(q,R);S.q={id:q.id,prompt:q.prompt};S.board=b.answers.map(a=>({...a,revealed:false}));
     S.opts=optionsFor(S.board,q,q.id+'finale',b.taken);S.picked=[];S.strikes=0;S.bank=0;S.mult=1;S.win=null;S.round='F';S.phase='finale';
@@ -418,7 +418,7 @@ function tvPage(){
   }
   function finaleDone(){const top=S.board.slice().sort((a,b)=>b.points-a.points)[0];S.trip=top?top.text:'';S.phase='finaleEnd';S.active=null;setEv('trip');push()}
   async function startFm(ids){
-    try{R=await loadResponses();Q=await loadQuestions()}catch{}
+    try{R=await loadResponses();Q=await loadQuestions()}catch(_e){}
     const team=S.teams[0].score>=S.teams[1].score?0:1,ps=teamPlayers(team);
     const p=ids&&ids.length===2?ids:[ps[0],ps[1]||ps[0]];
     const qs=Q.filter(x=>x.section==='fast').slice(0,5).map(q=>{const bf=boardFor(q,R),b=bf.answers;return {prompt:q.prompt,board:b,opts:optionsFor(b,q,q.id+'fm',bf.taken)}});
@@ -530,7 +530,7 @@ function tvPage(){
       <div class="k">${teamLbl(0)} ${S.teams[0].score} · ${teamLbl(1)} ${S.teams[1].score}</div>${S.trip?`<div class="k" style="font-size:2vw">Next family trip: ${esc(S.trip)} ✈️</div>`:''}</div></div>`;
     }
     root.innerHTML=h;
-    if(S.phase==='lobby'&&window.qrcode){try{const qr=qrcode(0,'M');qr.addData(joinUrl);qr.make();$('#qr').innerHTML=qr.createSvgTag({cellSize:8,margin:2,scalable:true})}catch{}}
+    if(S.phase==='lobby'&&window.qrcode){try{const qr=qrcode(0,'M');qr.addData(joinUrl);qr.make();$('#qr').innerHTML=qr.createSvgTag({cellSize:8,margin:2,scalable:true})}catch(_e){}}
     if(S.ev&&S.ev.n!==lastEv){lastEv=S.ev.n;fx(S.ev)}
   }
   function fx(e){
@@ -571,7 +571,7 @@ function joinPage(){
     if(!S)return;const mine=S.players[me.id];if(!mine){app().innerHTML=`<div class="wrap"><p class="muted">Joining…</p></div>`;return}
     const t=mine.team;let body='';
     const myTurn=S.active===me.id;
-    if(myTurn&&lastActive!==me.id&&navigator.vibrate)try{navigator.vibrate([120,60,120])}catch{}
+    if(myTurn&&lastActive!==me.id&&navigator.vibrate)try{navigator.vibrate([120,60,120])}catch(_e){}
     lastActive=S.active;
     switch(S.phase){
       case 'lobby':body=`<div class="big-msg">You're in! 🎉</div><p class="muted" style="text-align:center">Waiting for the host to start. Watch the TV.</p>
