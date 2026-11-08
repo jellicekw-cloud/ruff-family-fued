@@ -92,17 +92,38 @@ function norm(s){
   return String(s).toLowerCase().replace(/&/g,' and ').replace(/\bn\b/g,' and ').replace(/['’`]/g,'').replace(/[^a-z0-9 ]+/g,' ')
     .replace(/\b(the|a|an|my|your|some)\b/g,' ').replace(/\s+/g,' ').trim().split(' ').map(w=>w.length>3&&w.endsWith('s')&&!w.endsWith('ss')?w.slice(0,-1):w).join(' ');
 }
+/* Answers that mean the same thing, grouped automatically (matched anywhere in what someone typed) */
+const ALIASES={
+  "didn't clear standby":['no seat','no seats','no open seat','flight full','full flight','flight was full','oversold','overbooked','didnt clear','didn t clear','did not clear','standby','stand by','bumped','didnt get on','didn t get on','did not get on','didnt make it on','didnt make the flight','non rev','nonrev','non-rev','load','loads','weight restriction','sat out'],
+  'check the standby list':['standby','stand by','check the list','check list','watch the list','watch the board','check the board','upgrade list','seat list','monitor','check load','check loads'],
+  'traffic':['traffic','accident','wreck','road work','construction','i 85','i 285','highway'],
+  'long security line':['security','tsa','checkpoint','screening','precheck','pre check','long line'],
+  'overslept':['overslept','oversleep','slept','alarm','woke up late','sleep'],
+  'wrong gate':['wrong gate','gate change','wrong terminal','gate'],
+  'lost id':['lost id','lost my id','no id','forgot id','license','lost wallet'],
+  'grab a drink':['drink','drinks','bar','cocktail','beer','wine'],
+  'go smoke':['smoke','smoking','cigarette','vape'],
+  'go to the restroom':['restroom','bathroom','toilet','potty'],
+  'mac & cheese':['mac','macaroni'],
+  'collard greens':['greens','collard','collards']
+};
+function aliasKey(q,raw){
+  const n=' '+norm(raw)+' ';
+  for(const a of q.answers||[]){const list=ALIASES[String(a.text).toLowerCase()];if(!list)continue;
+    if(list.some(al=>n.includes(' '+norm(al)+' ')))return {key:norm(a.text),label:a.text}}
+  return null;
+}
 function groupsFor(q,responses){
-  const rs=responses.filter(r=>r.question_id===q.id),map={},merges=q.merges||{},labels=q.labels||{};
+  const rs=responses.filter(r=>r.question_id===q.id),map={},merges=q.merges||{},labels=q.labels||{},aliasLabel={};
   let total=0;
   rs.forEach(r=>(r.answers||[]).forEach(raw=>{
     const t=String(raw).trim();if(!t)return;total++;
-    let key=q.kind==='vote'?t:norm(t);if(!key)return;
+    const al=q.kind==='vote'?null:aliasKey(q,t);let key=q.kind==='vote'?t:(al?al.key:norm(t));if(!key)return;if(al)aliasLabel[al.key]=al.label;
     let hop=0;while(merges[key]&&hop++<10)key=merges[key];
     const g=map[key]||(map[key]={key,count:0,raws:{}});g.count++;g.raws[t]=(g.raws[t]||0)+1;
   }));
   const groups=Object.values(map).map(g=>{const top=Object.entries(g.raws).sort((a,b)=>b[1]-a[1])[0][0];
-    return {...g,label:labels[g.key]||top.charAt(0).toUpperCase()+top.slice(1),variants:Object.keys(g.raws)}}).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label));
+    return {...g,label:labels[g.key]||aliasLabel[g.key]||top.charAt(0).toUpperCase()+top.slice(1),variants:Object.keys(g.raws)}}).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label));
   if(q.kind==='vote')(q.options||[]).forEach(o=>{if(!groups.some(g=>g.key===o))groups.push({key:o,count:0,raws:{},label:o,variants:[]})});
   return {groups,total,people:new Set(rs.map(r=>r.respondent.toLowerCase())).size};
 }
