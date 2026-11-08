@@ -14,7 +14,7 @@ const CFG={
   plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i,5:/Chicken most likely retire/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v12 · Nov 8';
+const VERSION='v13 · Nov 8';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
@@ -70,6 +70,12 @@ async function loadQuestions(){
     const up={kind:'vote',max_answers:st.max_answers,options:st.options,answers:st.answers,decoys:st.decoys};
     try{await sb.from('feud_questions').update(up).eq('id',q.id);Object.assign(q,up)}catch(_e){}
   }
+  for(const q of qs){ /* swap in the family's own song picks */
+    if(q.kind!=='vote'||!(q.options||[]).includes('Electric Slide'))continue;
+    const st=STARTER.find(x=>x.prompt===q.prompt);if(!st)continue;
+    const up={max_answers:st.max_answers,options:st.options,answers:st.answers,decoys:st.decoys};
+    try{await sb.from('feud_questions').update(up).eq('id',q.id);Object.assign(q,up)}catch(_e){}
+  }
   return qs;
 }
 async function loadResponses(){const {data,error}=await sb.from('feud_responses').select('*');if(error)throw error;return data||[]}
@@ -89,7 +95,7 @@ const STARTER=[
  {section:'main',prompt:"Name something that's always missing when you need it.",answers:A(['TV remote',38],['Keys',25],['Phone charger',16],['Scissors',9],['Glasses',7],['Tape',5]),decoys:['Pen','Wallet','Lighter','Hair tie','Batteries','Socks']},
  {section:'main',prompt:'Name a chore the kids refuse to do.',answers:A(['Dishes',40],['Cleaning the bathroom',25],['Taking out the trash',15],['Laundry',12],['Cleaning their room',8]),decoys:['Vacuuming','Walking the dog','Mopping','Dusting','Cooking','Folding clothes']},
  {section:'main',prompt:'Name something people do at a family cookout.',answers:A(['Eat',30],['Play spades',22],['Dance',16],['Gossip',12],['Grill',12],['Play music',8]),decoys:['Swim','Play dominoes','Take pictures','Argue','Sleep','Play cornhole']},
- {section:'main',kind:'vote',max_answers:2,prompt:'Name a song that gets everybody on the dance floor.',options:['Electric Slide','Cupid Shuffle','Wobble','Before I Let Go','Cha Cha Slide','Candy'],answers:A(['Electric Slide',30],['Before I Let Go',24],['Cupid Shuffle',18],['Wobble',12],['Cha Cha Slide',9],['Candy',7]),decoys:['September','Uptown Funk','Shout','Macarena','Single Ladies','Hot in Herre']},
+ {section:'main',kind:'vote',max_answers:3,prompt:'Name a song that gets everybody on the dance floor.',options:['Ghetto Love Story (Rambo)','Everybody (Nicki Minaj)','Tripping in a Yacht (Cash Cobain)','Pop Dat Thang (DaBaby)','Motion Party (BossMan Dlow)','Do It Right (Don Toliver)','TMU (Don Toliver)','Killed Before (Young Thug)','Big Poppa (Biggie)','Before I Let Go (Frankie Beverly & Maze)'],answers:A(['Before I Let Go (Frankie Beverly & Maze)',26],['Big Poppa (Biggie)',20],['Motion Party (BossMan Dlow)',17],['Everybody (Nicki Minaj)',14],['Pop Dat Thang (DaBaby)',12],['TMU (Don Toliver)',11]),decoys:['Cupid Shuffle','Wobble','Electric Slide','Back That Azz Up','Knuck If You Buck','Act Up']},
  {section:'main',kind:'vote',max_answers:2,prompt:'Name something that makes a party turn up.',options:['The DJ','Drinks','Food','Dancing','Family drama','Karaoke','Good vibes','The guest list'],answers:A(['The DJ',30],['Drinks',22],['Food',16],['Dancing',12],['Good vibes',11],['Family drama',9]),decoys:['Balloons','Games','A photo booth','Fireworks','The guest of honor','A live band']},
  {section:'finale',kind:'vote',max_answers:1,prompt:'Where should our next family trip be?',options:['Amsterdam','Hawaii','Paris'],answers:A(['Amsterdam',34],['Hawaii',33],['Paris',33]),decoys:['Tokyo','London','Jamaica','Cancún','Dubai']},
  {section:'fast',prompt:'Name a Thanksgiving dessert.',answers:A(['Sweet potato pie',40],['Peach cobbler',22],['Banana pudding',15],['Pound cake',13],['Pecan pie',10]),decoys:['Apple pie','Cheesecake','Red velvet cake','Brownies','Ice cream']},
