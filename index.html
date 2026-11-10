@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Ruff Family Feud</title>
+<title>Ruff Family Network</title>
 <meta name="theme-color" content="#1d1440">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -155,6 +155,34 @@ details.acc[open]>summary::after{transform:rotate(90deg)}
 .fm-row .p{font-family:Anton,Impact,sans-serif;color:var(--gold);font-size:2.4vw}
 .fm-total{text-align:center;font-family:Anton,Impact,sans-serif;font-size:3vw;color:var(--gold);margin-top:auto}
 #confetti{position:fixed;inset:0;pointer-events:none;z-index:20}
+/* network lobby */
+.games{display:flex;gap:2vw;justify-content:center}
+.gtile{display:flex;align-items:center;gap:1vw;padding:1vw 2.4vw;border-radius:1.4vw;background:rgba(0,0,0,.25);border:.3vw solid transparent;font-family:Anton,Impact,sans-serif;font-size:2.2vw;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.gtile span{font-size:3vw}.gtile.on{border-color:var(--gold);color:#fff;box-shadow:0 0 3vw rgba(245,197,66,.35);background:rgba(245,197,66,.12)}
+/* wheel: TV */
+.wmode .score .pts{font-size:3.2vw}
+.wbank{font-size:1.3vw;color:var(--muted);margin-top:.4vw}
+.wcenter{display:flex;flex-direction:column;align-items:center;gap:1.2vw;min-width:0}
+.wboard{width:100%;display:grid;grid-template-columns:repeat(14,1fr);gap:.4vw;padding:1vw;border-radius:1.4vw;background:#0d2a1c;border:.5vw solid var(--gold);box-shadow:0 0 0 .4vw #7a5400,0 2vw 5vw rgba(0,0,0,.5)}
+.wt{aspect-ratio:3/4;border-radius:.35vw;display:flex;align-items:center;justify-content:center;background:#fdfdfd;font-family:Anton,Impact,sans-serif;font-size:3.3vw;color:#1d1440;box-shadow:inset 0 -.25vw 0 rgba(0,0,0,.12)}
+.wt.g{background:linear-gradient(#2a8f5c,#1d6d45);box-shadow:none}
+.wt.lit{background:#5aa9ff;color:#fff;animation:pop .45s ease-out}
+.wcat{background:var(--blue2);padding:.6vw 3vw;border-radius:.7vw;font-family:Anton,Impact,sans-serif;font-size:2.3vw;letter-spacing:.12em;text-transform:uppercase;box-shadow:0 .4vw 0 #0c2a78}
+.wused{display:flex;flex-wrap:wrap;justify-content:center;gap:.2vw .5vw}
+.wused span{font-family:Anton,Impact,sans-serif;font-size:1.8vw;color:#fff}.wused span.v{color:#ffd166}.wused span.x{color:rgba(255,255,255,.16)}
+#wheelLayer{position:fixed;inset:0;z-index:12;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2vh;background:radial-gradient(ellipse at center,rgba(40,25,100,.92),rgba(10,6,30,.96))}
+#wheelLayer.show{display:flex}
+.wl-wheel{position:relative;width:min(72vh,60vw);height:min(72vh,60vw)}
+.wl-spin{width:100%;height:100%;border-radius:50%;box-shadow:0 0 0 1.2vh #f5c542,0 0 0 2vh #7a5400,0 3vh 8vh rgba(0,0,0,.6);transition:transform 5.2s cubic-bezier(.12,.68,.16,1)}
+.wl-spin svg{width:100%;height:100%;display:block}
+.wl-ptr{position:absolute;left:50%;top:-3.4vh;transform:translateX(-50%);width:0;height:0;border-left:2.6vh solid transparent;border-right:2.6vh solid transparent;border-top:5vh solid #fff;filter:drop-shadow(0 .6vh .6vh rgba(0,0,0,.5));z-index:2}
+.wl-res{min-height:12vh;text-align:center}.wl-res .t{font-family:Anton,Impact,sans-serif;font-size:9vh;color:var(--gold);text-shadow:0 .7vh 0 #7a5400;animation:pop .35s ease-out;line-height:1.05}.wl-res .s{font-size:3.4vh;font-weight:700;color:#fff;margin-top:1vh}
+/* wheel: phone + admin */
+.lgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+.lk{aspect-ratio:1;border:0;border-radius:10px;background:#fff;color:#1d1440;font-family:Anton,Impact,sans-serif;font-size:24px}
+.lk:disabled{opacity:.22}.lk.on{background:var(--gold);box-shadow:0 0 0 3px #fff}
+.wbig{font-size:28px;padding:24px;margin-top:10px}
+.wprev{background:#1d6d45;border-radius:10px;padding:10px;font-family:Anton,Impact,sans-serif;letter-spacing:.22em;text-align:center;font-size:18px;margin:10px 0;line-height:1.5}
 </style>
 </head>
 <body>
@@ -163,6 +191,6 @@ details.acc[open]>summary::after{transform:rotate(90deg)}
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script>document.write('<script src="app.js?v='+Date.now()+'"><\/script>')</script>
+<script>var _v=Date.now();document.write('<script src="wheel.js?v='+_v+'"><\/script><script src="app.js?v='+_v+'"><\/script>')</script>
 </body>
 </html>

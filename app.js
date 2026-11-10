@@ -14,7 +14,7 @@ const CFG={
   plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i,5:/Chicken most likely retire/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v15 · Nov 8';
+const VERSION='v16 · Nov 9 · Wheel';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
@@ -193,7 +193,7 @@ function optionsFor(board,q,seed,taken=[]){
 /* ============ Realtime ============ */
 function joinChannel(onEvent){
   const ch=sb.channel('feud-'+CFG.room,{config:{broadcast:{self:false}}});
-  ['state','hello','ask','buzz','pick','fmpick','cmd'].forEach(ev=>ch.on('broadcast',{event:ev},({payload})=>onEvent(ev,payload||{})));
+  ['state','hello','ask','buzz','pick','fmpick','cmd','wact'].forEach(ev=>ch.on('broadcast',{event:ev},({payload})=>onEvent(ev,payload||{})));
   let ok;const ready=new Promise(r=>ok=r);
   ch.subscribe(st=>{if(st==='SUBSCRIBED')ok()});
   return {ready,send:async(event,payload)=>{await ready;return ch.send({type:'broadcast',event,payload})}};
@@ -242,14 +242,14 @@ function pinGate(next){
 /* ============ Home ============ */
 function homePage(){
   app().innerHTML=`<div class="wrap" style="text-align:center;padding-top:40px">
-   <div style="font-size:64px">🦃</div><h1 class="title" style="font-size:46px">Ruff Family Feud</h1>
-   <p class="muted">Thanksgiving 2026 · Team Mac &amp; Cheese 🧀 vs Team Rice &amp; Peas 🍚</p>
+   <div style="font-size:64px">📺</div><h1 class="title" style="font-size:42px">Ruff Family Network</h1>
+   <p class="muted">🦃 Family Feud · 🎡 Family Wheel<br>Thanksgiving weekend 2026 · Team Mac &amp; Cheese 🧀 vs Team Rice &amp; Peas 🍚</p>
    <div class="home-grid">
     <a class="btn gold" href="#join">📱 Join the game</a>
     <a class="btn" href="#survey">📝 Take the family survey</a>
     <a class="btn" href="#tv">📺 This is the TV</a>
     <a class="btn" href="#host">🎤 I'm the host</a>
-    <a class="btn" href="#admin">⚙️ Questions &amp; survey results</a>
+    <a class="btn" href="#admin">⚙️ Questions, puzzles &amp; survey</a>
    </div></div>`;
 }
 
@@ -258,7 +258,7 @@ async function surveyPage(){
   app().innerHTML=`<div class="wrap"><p class="muted">Loading the survey…</p></div>`;
   window.scrollTo(0,0);
   let qs;try{qs=(await loadQuestions())}catch(e){app().innerHTML=`<div class="wrap"><div class="card">Could not load the survey. ${esc(e.message)}</div></div>`;return}
-  const order={main:0,fast:1,finale:2};qs=qs.sort((a,b)=>order[a.section]-order[b.section]||a.position-b.position);
+  const order={main:0,fast:1,finale:2};qs=qs.filter(q=>q.section in order).sort((a,b)=>order[a.section]-order[b.section]||a.position-b.position);
   if(!qs.length){app().innerHTML=`<div class="wrap"><div class="card">The survey isn't ready yet. Check back soon!</div></div>`;return}
   const draft=ls.get('survey',{name:'',i:-1,ans:{}});
   const st={name:draft.name,i:draft.i,ans:draft.ans||{}};
@@ -313,7 +313,7 @@ function adminPage(){pinGate(adminMain)}
 async function adminMain(){
   app().innerHTML=`<div class="wrap"><p class="muted">Loading…</p></div>`;
   let Q=[],R=[];
-  try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()]);if(Q.length&&await ensureExtras(Q))Q=await loadQuestions()}catch(e){app().innerHTML=`<div class="wrap"><div class="card"><b>Can't reach the database.</b><p class="muted">${esc(e.message)}</p><p class="muted">If this is the first time, run the setup script in Supabase first.</p></div></div>`;return}
+  try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()]);if(Q.length&&await ensureExtras(Q))Q=await loadQuestions();if(Q.length&&await ensureWheel(Q))Q=await loadQuestions()}catch(e){app().innerHTML=`<div class="wrap"><div class="card"><b>Can't reach the database.</b><p class="muted">${esc(e.message)}</p><p class="muted">If this is the first time, run the setup script in Supabase first.</p></div></div>`;return}
   const open=new Set(ls.get('adminOpen',[]));
   const keepOpen=()=>{const s=[...document.querySelectorAll('details.acc[open]')].map(d=>d.dataset.k).filter(Boolean);open.clear();s.forEach(k=>open.add(k));ls.set('adminOpen',s)};
   const SEC={main:`Rounds (${CFG.multipliers.length} get played)`,finale:'Finale: the big vote',fast:'Fast Money'};
@@ -343,6 +343,16 @@ async function adminMain(){
      <div class="row"><button class="btn small red" data-act="delq" data-q="${q.id}">Delete question</button><span class="spacer"></span><button class="btn small gold" data-act="saveq" data-q="${q.id}">Save changes</button></div>
     </div></details>`;
   }
+  function pCard(q){
+    const rows=wLayout(q.prompt),cat=(q.labels&&q.labels.cat)||'Phrase',use=(q.labels&&q.labels.use)||'main';
+    return `<details class="acc" data-k="${q.id}" ${open.has(q.id)?'open':''}><summary><span style="flex:1">${esc(q.prompt)}</span><span class="pill">${use==='bonus'?'🎁 Bonus':esc(cat)}</span>${rows?'':'<span class="pill warn">Too long</span>'}</summary><div class="acc-body">
+     ${rows?`<div class="wprev">${rows.map(r=>`<div>${esc(r)}</div>`).join('')}</div>`:'<p class="pill warn" style="display:inline-block">Too long for the board. Keep it to 4 lines of 14 letters (about 50 characters, no word over 14).</p>'}
+     <label class="field">Puzzle<input data-f="prompt" data-q="${q.id}" value="${esc(q.prompt)}"></label>
+     <label class="field">Category<select data-f="cat" data-q="${q.id}">${[...new Set([cat,...WCATS])].map(c=>`<option ${c===cat?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+     <label class="field">Use it for<select data-f="use" data-q="${q.id}"><option value="main" ${use==='main'?'selected':''}>A regular puzzle</option><option value="bonus" ${use==='bonus'?'selected':''}>The bonus round</option></select></label>
+     <div class="row"><button class="btn small red" data-act="delq" data-q="${q.id}">Delete puzzle</button><span class="spacer"></span><button class="btn small gold" data-act="savep" data-q="${q.id}">Save changes</button></div>
+    </div></details>`;
+  }
   function draw(){
     const bySec=s=>Q.filter(q=>q.section===s);
     app().innerHTML=`<div class="wrap"><div class="row"><a class="btn small" href="#">‹ Home</a><span class="spacer"></span><a class="btn small" href="#tv">📺 TV</a><a class="btn small" href="#host">🎤 Host</a></div>
@@ -355,8 +365,14 @@ ${surveyUrl}</div>
      <button class="btn small gold" data-act="copy">📋 Copy message</button>
      ${people.size?`<p class="faint" style="font-size:14px">Answered so far: ${esc([...new Set(R.map(r=>r.respondent))].join(', '))}</p>`:''}
     </div></details>
+    ${Q.length?`<details class="acc" data-k="feudq" ${open.has('feudq')?'open':''}><summary>🦃 Family Feud questions</summary><div class="acc-body">
     ${['main','finale','fast'].map(s=>bySec(s).length?`<div class="sec-label">${SEC[s]}</div>${bySec(s).map(qCard).join('')}`:'').join('')}
-    ${Q.length?`<p class="faint" style="font-size:12px;text-align:center;margin-top:30px">${VERSION}</p>`:''}${Q.length?`<div class="sec-label">More</div><div class="row"><button class="btn small" data-act="addq" data-s="main">＋ Round question</button><button class="btn small" data-act="addq" data-s="fast">＋ Fast Money question</button><span class="spacer"></span><button class="btn small red" data-act="wipe">Clear all survey answers</button></div>`:''}
+    <div class="row" style="margin-top:12px"><button class="btn small" data-act="addq" data-s="main">＋ Round question</button><button class="btn small" data-act="addq" data-s="fast">＋ Fast Money question</button></div></div></details>
+    <details class="acc" data-k="wheelq" ${open.has('wheelq')?'open':''}><summary>🎡 Wheel puzzles <span class="pill" style="margin-left:6px">${bySec('wheel').length}</span></summary><div class="acc-body">
+    <p class="faint" style="font-size:14px;margin-top:8px">${WHEEL.rounds} regular puzzles get played, then 1 bonus. Family jokes make the best ones 😂</p>
+    ${bySec('wheel').map(pCard).join('')}
+    <div class="row" style="margin-top:12px"><button class="btn small gold" data-act="addp">＋ Add a puzzle</button></div></div></details>`:''}
+    ${Q.length?`<p class="faint" style="font-size:12px;text-align:center;margin-top:30px">${VERSION}</p>`:''}${Q.length?`<div class="row" style="margin-top:20px"><span class="spacer"></span><button class="btn small red" data-act="wipe">Clear all survey answers</button></div>`:''}
     </div>`;
   }
   async function reload(){[Q,R]=await Promise.all([loadQuestions(),loadResponses()]);keepOpen();draw()}
@@ -378,7 +394,14 @@ ${surveyUrl}</div>
       else{obj.max_answers=+val('max_answers');obj.answers=val('answers').split('\n').map(l=>{const [t,p]=l.split('|');return {text:(t||'').trim(),points:Math.max(1,parseInt(p)||1)}}).filter(a=>a.text).slice(0,6)}
       await patch(q,obj,'Saved ✓');
     }
-    if(act==='delq'&&confirm('Delete this question and its survey answers?')){const {error}=await sb.from('feud_questions').delete().eq('id',q.id);if(error)toast(error.message);else{toast('Deleted');await reload()}}
+    if(act==='savep'){
+      const val=f=>{const i=document.querySelector(`[data-f="${f}"][data-q="${q.id}"]`);return i?i.value:''};
+      const text=val('prompt').trim();if(!text){toast('The puzzle needs words');return}if(!wLayout(text)){toast('Too long for the board. Try a shorter phrase.');return}
+      await patch(q,{prompt:text,labels:{...(q.labels||{}),cat:val('cat'),use:val('use')}},'Saved ✓');
+    }
+    if(act==='addp'){const v=prompt('Type the puzzle phrase (like: WHAT\'S BURNING?)');if(!v||!v.trim())return;if(!wLayout(v)){toast('Too long for the board. Try a shorter phrase.');return}
+      const pos=Math.max(0,...Q.map(x=>x.position))+1;try{await saveQuestion({position:pos,section:'wheel',prompt:v.trim(),kind:'open',max_answers:1,options:[],answers:[],decoys:[],use_survey:false,merges:{},labels:{cat:'Family Inside Joke',use:'main'}});open.add('wheelq');await reload();toast('Puzzle added 🎡')}catch(e){toast(e.message)}}
+    if(act==='delq'&&confirm(q.section==='wheel'?'Delete this puzzle?':'Delete this question and its survey answers?')){const {error}=await sb.from('feud_questions').delete().eq('id',q.id);if(error)toast(error.message);else{toast('Deleted');await reload()}}
     if(act==='addq'){const s=el.dataset.s,pos=Math.max(0,...Q.map(x=>x.position))+1;try{await saveQuestion({position:pos,section:s,prompt:'New question — tap to edit',kind:'open',max_answers:2,options:[],answers:[],decoys:[],use_survey:true,merges:{},labels:{}});await reload();toast('Added at the bottom')}catch(e){toast(e.message)}}
     if(act==='wipe'&&confirm('Delete EVERY survey answer? This cannot be undone.')){const ids=R.map(r=>r.id);for(const id of ids)await sb.from('feud_responses').delete().eq('id',id);await reload();toast('Survey answers cleared')}
   };
@@ -395,10 +418,10 @@ ${surveyUrl}</div>
 /* ============ TV (runs the game) ============ */
 function tvPage(){
   let S=null,Q=[],R=[],ch=null,lastEv=0,evn=0,saveT=null,tickT=null,started=false;
-  app().innerHTML=`<div class="tv-gate"><div style="font-size:8vw">🦃</div><h1 class="title">Ruff Family Feud</h1><p class="muted" style="font-size:2vw">Press OK on the remote to start</p><button class="btn gold" id="startTv" autofocus>▶ Start</button><p class="faint" id="tvmsg" style="font-size:1.4vw"></p></div><div id="tvroot"></div>`;
+  app().innerHTML=`<div class="tv-gate"><div style="font-size:8vw">📺</div><h1 class="title">Ruff Family Network</h1><p class="muted" style="font-size:2vw">Press OK on the remote to start</p><button class="btn gold" id="startTv" autofocus>▶ Start</button><p class="faint" id="tvmsg" style="font-size:1.4vw"></p></div><div id="tvroot"></div>`;
   $('#startTv').onclick=()=>{audio();boot()};
   setTimeout(()=>{const b=$('#startTv');if(b)b.focus()},100);
-  const fresh=()=>({phase:'lobby',teams:CFG.teams.map(t=>({...t,score:0})),players:{},order:[],ptr:[0,0],round:0,used:[],q:null,board:[],opts:[],picked:[],strikes:0,bank:0,mult:1,control:null,active:null,face:null,turn:0,fm:null,ev:null,win:null,trip:null,_t:Date.now()});
+  const fresh=()=>({phase:'lobby',teams:CFG.teams.map(t=>({...t,score:0})),players:{},order:[],ptr:[0,0],round:0,used:[],q:null,board:[],opts:[],picked:[],strikes:0,bank:0,mult:1,control:null,active:null,face:null,turn:0,fm:null,ev:null,win:null,trip:null,game:'feud',w:null,_t:Date.now()});
   async function boot(){
     $('#tvmsg').textContent='Connecting…';
     try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()])}catch(e){$('#tvmsg').textContent='Could not reach the game database: '+e.message;return}
@@ -410,7 +433,7 @@ function tvPage(){
     document.querySelector('.tv-gate').remove();push();
     tickT=setInterval(tick,250);
   }
-  cleanup=()=>{clearInterval(tickT)};
+  cleanup=()=>{clearInterval(tickT);const l=$('#wheelLayer');if(l)l.remove()};
   function push(){if(MOCK)window.__S=S;S._t=Date.now();ch.send('state',S);clearTimeout(saveT);saveT=setTimeout(()=>sb.from('feud_state').upsert({room:CFG.room,state:S,updated_at:new Date().toISOString()}).then(()=>{}),400);draw()}
   const P=id=>S.players[id];
   const teamOf=id=>P(id)?P(id).team:0;
@@ -418,6 +441,7 @@ function tvPage(){
   function nextPlayer(t){const ps=teamPlayers(t);if(!ps.length)return null;const id=ps[S.ptr[t]%ps.length];S.ptr[t]=(S.ptr[t]+1)%ps.length;return id}
   const allRevealed=()=>S.board.every(b=>b.revealed);
   function setEv(type,extra={}){S.ev={type,n:++evn,...extra}}
+  const W=makeWheel({S:()=>S,push:()=>push(),setEv,nextPlayer:t=>nextPlayer(t),teamPlayers:t=>teamPlayers(t),P:id=>P(id),loadQ:async()=>{try{Q=await loadQuestions()}catch(_e){}return Q}});
   function startFaceoff(){
     const a=nextPlayer(0),b=nextPlayer(1);
     if(!a||!b){S.control=a?0:1;S.phase='play';S.face=null;S.active=nextPlayer(S.control);return}
@@ -472,6 +496,7 @@ function tvPage(){
   function fmAdvance(){const f=S.fm;f.qi++;if(f.qi>=f.qs.length){f.stage=f.stage==='p1'?'reveal1':'reveal2';f.endsAt=0}}
   const fmTotal=()=>S.fm?[0,1].reduce((n,p)=>n+S.fm.picks[p].slice(0,S.fm.shown[p]).reduce((m,x)=>m+(x?x.pts:0),0),0):0;
   function tick(){
+    W.tick();
     const f=S&&S.fm;if(!f||!(f.stage==='p1'||f.stage==='p2'))return;
     const left=f.endsAt-Date.now();
     if(left<=0){f.stage=f.stage==='p1'?'reveal1':'reveal2';f.endsAt=0;push();return}
@@ -486,6 +511,8 @@ function tvPage(){
       else{P(p.id).name=String(p.name).slice(0,20);if(p.switchTeam!==undefined&&S.phase==='lobby')P(p.id).team=p.switchTeam===1?1:0}
       return push();
     }
+    if(ev==='wact')return W.act(p||{});
+    if(ev==='buzz'&&S.phase==='wheel')return W.act({a:'buzz',id:p.id});
     if(ev==='buzz'){if(S.phase==='faceoff'&&S.face&&!S.face.buzzed&&S.face.ids.includes(p.id)&&!S.face.tried.includes(p.id)){S.face.buzzed=p.id;S.active=p.id;setEv('buzz');push()}return}
     if(ev==='pick'){if(p.id&&p.id===S.active&&['faceoff','play','steal','finale'].includes(S.phase)&&(S.phase!=='faceoff'||(S.face&&S.face.buzzed===p.id)))pick(p.key);return}
     if(ev==='fmpick'){
@@ -498,6 +525,8 @@ function tvPage(){
   }
   async function cmd(p){
     const c=p.cmd;
+    if(c==='game'&&S.phase==='lobby'){S.game=p.game==='wheel'?'wheel':'feud';return push()}
+    if(/^w[a-z]/.test(c)&&c!=='wscore'||c==='wscore'&&S.w)return W.cmd(p);
     if(c==='start'||c==='next'){
       if(S.phase==='lobby'||(S.phase==='roundEnd'&&S.round<CFG.multipliers.length))return startRound(p.qid);
       if(S.phase==='roundEnd')return startFinale();
@@ -523,7 +552,7 @@ function tvPage(){
       return push()}
     if(c==='fmSwap'&&S.fm&&S.fm.stage==='ready1'&&p.ids){S.fm.ids=p.ids;return push()}
     if(c==='finish'){S.phase='over';S.active=null;setEv('over');return push()}
-    if(c==='newGame'){const keep={players:S.players,order:S.order};S=fresh();Object.assign(S,keep);evn++;S.ev={type:'none',n:evn};return push()}
+    if(c==='newGame'){const keep={players:S.players,order:S.order,game:S.game};S=fresh();Object.assign(S,keep);evn++;S.ev={type:'none',n:evn};return push()}
     if(c==='lobby'){S.phase='lobby';S.active=null;return push()}
   }
   /* ---- drawing ---- */
@@ -546,10 +575,15 @@ function tvPage(){
     const root=$('#tvroot');if(!root||!S)return;
     let h='';
     const joinUrl=siteBase()+'#join';
+    W.drawLayer();
     if(S.phase==='lobby'){
-      h=`<div class="tv"><div class="tv-head"><div style="font-size:4vw">🦃</div><h1 class="title">Ruff Family Feud</h1><span class="spacer"></span><span class="tv-round">Waiting for the host to start</span></div>
+      const g=S.game==='wheel'?'wheel':'feud';
+      h=`<div class="tv"><div class="tv-head"><div style="font-size:4vw">📺</div><h1 class="title">Ruff Family Network</h1><span class="spacer"></span><span class="tv-round">Waiting for the host to start</span></div>
+      <div class="games"><div class="gtile ${g==='feud'?'on':''}"><span>🦃</span>Ruff Family Feud</div><div class="gtile ${g==='wheel'?'on':''}"><span>🎡</span>Ruff Family Wheel</div></div>
       <div class="lobby"><div class="join-box"><div class="qr" id="qr"></div><div class="url">${esc(joinUrl.replace(/^https?:\/\//,''))}</div><div class="hint">Scan with your phone camera to join</div></div>
       ${[0,1].map(t=>`<div class="team-col"><div class="em">${S.teams[t].emoji}</div><h3>${esc(S.teams[t].name)}</h3>${teamPlayers(t).map(id=>`<div class="p">${name(id)}</div>`).join('')||'<div class="faint" style="font-size:1.6vw">Nobody yet</div>'}</div>`).join('')}</div></div>`;
+    }else if(S.phase==='wheel'&&S.w){
+      h=W.draw();
     }else if(['faceoff','play','steal','roundEnd','finale'].includes(S.phase)){
       const rl=S.phase==='finale'?'🌍 The big vote':`Round ${S.round}${S.mult>1?` · ${S.mult===2?'Double':'Triple'} points!`:''}`;
       h=`<div class="tv"><div class="tv-head"><h1 class="title">Ruff Family Feud</h1><span class="spacer"></span><span class="tv-round">${rl}</span></div>
@@ -577,6 +611,7 @@ function tvPage(){
     if(S.ev&&S.ev.n!==lastEv){lastEv=S.ev.n;fx(S.ev)}
   }
   function fx(e){
+    W.fx(e);
     if(e.type==='ding')SFX.ding();
     if(e.type==='buzz')SFX.buzz();
     if(e.type==='win')SFX.win();
@@ -613,11 +648,12 @@ function joinPage(){
   function draw(){
     if(!S)return;const mine=S.players[me.id];if(!mine){app().innerHTML=`<div class="wrap"><p class="muted">Joining…</p></div>`;return}
     const t=mine.team;let body='';
-    const myTurn=S.active===me.id;
+    const myTurn=S.phase==='wheel'&&S.w?(S.w.active===me.id||(S.w.stage==='bonusPick'&&S.w.bonus&&S.w.bonus.player===me.id)):S.active===me.id;
     if(myTurn&&lastActive!==me.id&&navigator.vibrate)try{navigator.vibrate([120,60,120])}catch(_e){}
-    lastActive=S.active;
+    lastActive=myTurn?me.id:(S.phase==='wheel'&&S.w?S.w.active:S.active);
     switch(S.phase){
-      case 'lobby':body=`<div class="big-msg">You're in! 🎉</div><p class="muted" style="text-align:center">Waiting for the host to start. Watch the TV.</p>
+      case 'wheel':body=wheelPhone(S,me);break;
+      case 'lobby':body=`<div class="big-msg">You're in! 🎉</div><p class="muted" style="text-align:center">Waiting for the host to start ${S.game==='wheel'?'🎡 the Wheel':'🦃 the Feud'}. Watch the TV.</p>
         <div class="card" style="text-align:center"><div style="font-size:44px">${S.teams[t].emoji}</div><b>${esc(S.teams[t].name)}</b><div style="height:10px"></div><button class="btn small" id="sw">Switch to ${tName(1-t)}</button></div><p style="text-align:center"><a class="faint" href="#join?new=1" id="chg">Not ${esc(mine.name)}? Change name</a></p>`;break;
       case 'faceoff':
         if(S.face&&S.face.ids.includes(me.id)&&!S.face.tried.includes(me.id)){
@@ -637,7 +673,8 @@ function joinPage(){
         else body=`<div class="big-msg">⚡ Fast Money!</div><p class="muted" style="text-align:center">Watch the TV 📺</p>`;break}
       case 'over':body=`<div class="big-msg">Game over! 🎉</div><p class="muted" style="text-align:center">${tName(0)} ${S.teams[0].score} · ${tName(1)} ${S.teams[1].score}</p>`;break;
     }
-    app().innerHTML=`<div class="ph-top"><span style="font-size:24px">${S.teams[t].emoji}</span><span class="ph-team">${esc(mine.name)}</span><span class="spacer"></span><span class="pill">${S.teams[0].emoji} ${S.teams[0].score} · ${S.teams[1].emoji} ${S.teams[1].score}</span></div><div class="ph-main">${body}</div>`;
+    app().innerHTML=`<div class="ph-top"><span style="font-size:24px">${S.teams[t].emoji}</span><span class="ph-team">${esc(mine.name)}</span><span class="spacer"></span><span class="pill">${S.phase==='wheel'&&S.w?`${S.teams[0].emoji} $${S.w.score[0].toLocaleString()} · ${S.teams[1].emoji} $${S.w.score[1].toLocaleString()}`:`${S.teams[0].emoji} ${S.teams[0].score} · ${S.teams[1].emoji} ${S.teams[1].score}`}</span></div><div class="ph-main">${body}</div>`;
+    if(S.phase==='wheel'){wheelPhoneWire(S,me,x=>ch.send('wact',{id:me.id,...x}));return}
     const sw=$('#sw');if(sw)sw.onclick=()=>{me.team=1-t;pstore.set('team',me.team);ch.send('hello',{id:me.id,name:me.name,team:me.team,switchTeam:me.team})};
     const bz=$('#buzz');if(bz)bz.onclick=()=>{bz.disabled=true;bz.textContent='…';ch.send('buzz',{id:me.id})};
     document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{document.querySelectorAll('.opt').forEach(x=>x.disabled=true);
@@ -669,7 +706,13 @@ async function hostMain(){
     const nextR=typeof S.round==='number'?S.round+1:1,planRe=CFG.plan[nextR],reserved=Object.entries(CFG.plan).filter(([r])=>+r>nextR).map(([,re])=>re);
     const pref=(planRe&&unused.find(q=>planRe.test(q.prompt)))||unused.find(q=>!reserved.some(re=>re.test(q.prompt)))||unused[0];
     const roundPick=`<label class="field">Question for round ${nextR}<select id="qsel">${unused.map(q=>`<option value="${q.id}" ${pref&&q.id===pref.id?'selected':''}>${esc(q.prompt)}</option>`).join('')}</select></label>`;
-    if(ph==='lobby'){status=`${S.order.length} player${S.order.length===1?'':'s'} joined. Start when everyone's in.`;actions=`${roundPick}<button class="btn gold block" data-c="start" ${S.order.length<2?'disabled':''}>▶ Start round 1</button>`}
+    const wh=ph==='wheel'?wheelHost(S,Q,pname,tName):null;
+    if(wh){status=wh.status;actions=wh.actions;board=wh.board}
+    else if(ph==='lobby'){const g=S.game==='wheel'?'wheel':'feud',wp=wPuzzles(Q).filter(p=>p.use!=='bonus'&&wLayout(p.text));
+      status=`${S.order.length} player${S.order.length===1?'':'s'} joined. Start when everyone's in.`;
+      actions=`<div class="sec-label" style="margin-top:0">Tonight's game</div><div class="team-pick" style="margin:6px 0 14px"><button data-c="game" data-g="feud" class="${g==='feud'?'on':''}"><span class="em">🦃</span>Feud</button><button data-c="game" data-g="wheel" class="${g==='wheel'?'on':''}"><span class="em">🎡</span>Wheel</button></div>`+
+      (g==='feud'?`${roundPick}<button class="btn gold block" data-c="start" ${S.order.length<2?'disabled':''}>▶ Start round 1</button>`
+      :`<label class="field">First puzzle<select id="wsel">${wp.map((p,i)=>`<option value="${esc(p.id)}" ${i===0?'selected':''}>${esc(p.cat)}: ${esc(p.text)}</option>`).join('')}</select></label><button class="btn gold block" data-c="wstart" ${S.order.length<2?'disabled':''}>🎡 ${S.w&&S.w.round&&S.w.stage!=='over'?'Keep playing the Wheel':'Start the Wheel'}</button>`)}
     else if(['faceoff','play','steal','finale'].includes(ph)){
       status={faceoff:S.face&&S.face.buzzed?`${pname(S.face.buzzed)} buzzed. Waiting for their pick.`:`Faceoff: ${pname(S.face&&S.face.ids[0])} vs ${pname(S.face&&S.face.ids[1])}`,
         play:`${pname(S.active)} is picking · ${S.strikes} strike${S.strikes===1?'':'s'} · bank ${S.bank}`,steal:`${tName(1-S.control)} stealing · ${pname(S.active)} picks`,finale:`Big vote · ${pname(S.active)} is picking`}[ph];
@@ -690,9 +733,9 @@ async function hostMain(){
       actions=f.stage.startsWith('ready')?`<button class="btn gold block" data-c="fmGo">⏱ Start the timer</button>`:f.stage.startsWith('reveal')?`<button class="btn gold block" data-c="fmReveal">👀 Reveal next answer</button>`:f.stage==='done'?`<button class="btn gold block" data-c="finish">🏆 Show the winner</button>`:'<p class="muted">Timer is running…</p>';
       board=`<div class="sec-label">Their answers</div>${[0,1].map(pi=>`<div class="card" style="padding:12px"><b>${pname(f.ids[pi])}</b>${f.qs.map((q,i)=>{const x=f.picks[pi][i];return `<div class="row" style="font-size:14px;padding:4px 0"><span class="faint" style="flex:1">${esc(q.prompt)}</span><span>${x===undefined?'':x?esc(x.text)+' · '+x.pts:'pass'}</span></div>`}).join('')}</div>`).join('')}`}
     else if(ph==='over'){status='Game over! 🎉';actions=`<button class="btn block" data-c="newGame">🔁 New game (same players)</button>`}
-    const players=[0,1].map(t=>`<div class="sec-label">${tName(t)} · ${S.teams[t].score}</div>${S.order.filter(id=>S.players[id]&&S.players[id].team===t).map(id=>`<div class="player-row"><span style="flex:1">${pname(id)}${S.active===id?' 👈':''}</span><button class="btn small" data-c="move" data-id="${id}" data-t="${1-t}">Move</button><button class="btn small" data-c="remove" data-id="${id}">✕</button></div>`).join('')||'<p class="faint">Nobody</p>'}
+    const players=[0,1].map(t=>`<div class="sec-label">${tName(t)} · ${wh?wh.score(t):S.teams[t].score}</div>${S.order.filter(id=>S.players[id]&&S.players[id].team===t).map(id=>`<div class="player-row"><span style="flex:1">${pname(id)}${S.active===id?' 👈':''}</span><button class="btn small" data-c="move" data-id="${id}" data-t="${1-t}">Move</button><button class="btn small" data-c="remove" data-id="${id}">✕</button></div>`).join('')||'<p class="faint">Nobody</p>'}
       <div class="row"><button class="btn small" data-c="rename" data-t="${t}">Rename team</button><button class="btn small" data-c="score" data-t="${t}">Fix score</button></div>`).join('');
-    app().innerHTML=`<div class="wrap"><div class="row"><span class="pill">🎤 Host</span><span class="spacer"></span><span class="pill">${S.teams[0].emoji} ${S.teams[0].score} · ${S.teams[1].emoji} ${S.teams[1].score}</span></div>
+    app().innerHTML=`<div class="wrap"><div class="row"><span class="pill">🎤 Host${S.phase==='wheel'?' · 🎡 Wheel':''}</span><span class="spacer"></span><span class="pill">${wh?`${S.teams[0].emoji} ${wh.score(0)} · ${S.teams[1].emoji} ${wh.score(1)}`:`${S.teams[0].emoji} ${S.teams[0].score} · ${S.teams[1].emoji} ${S.teams[1].score}`}</span></div>
     <div class="card"><div class="host-status">${status}</div><div style="height:12px"></div>${actions}</div>${board}
     <details class="acc" id="pl" ${openPlayers?'open':''}><summary>👥 Players &amp; teams (${S.order.length})</summary><div class="acc-body">${players}</div></details>
     <details class="acc"><summary>⚙️ Game tools</summary><div class="acc-body"><div class="row"><button class="btn small" data-c="lobby">Back to lobby</button><button class="btn small red" data-c="newGame">Restart game</button><a class="btn small" href="#admin">Questions &amp; survey</a></div></div></details></div>`;
@@ -701,12 +744,17 @@ async function hostMain(){
   app().onclick=async ev=>{
     const b=ev.target.closest('[data-c]');if(!b||!S)return;const c=b.dataset.c;
     if(c==='start'||c==='next'){const qs=$('#qsel');return send(c,{qid:qs?qs.value:undefined})}
+    if(c==='game')return send('game',{game:b.dataset.g});
+    if(c==='wstart'||c==='wnext'){const ws=$('#wsel');return send(c,{pid:ws?ws.value:undefined})}
+    if(c==='wbonus'){const bt=$('#wbt'),bp=$('#wbp');return send('wbonus',{team:bt?+bt.value:undefined,id:bp?bp.value:undefined})}
+    if(c==='wgiveup'&&!confirm('Reveal the puzzle with no winner?'))return;
+    if(c==='wover'&&S.w&&S.w.stage!=='bonusEnd'&&!confirm('End the Wheel and show the winner?'))return;
     if(c==='reveal')return send('reveal',{idx:+b.dataset.i});
     if(c==='award'){if(confirm('Give the bank to this team and end the round?'))send('award',{team:+b.dataset.t});return}
     if(c==='move')return send('move',{id:b.dataset.id,team:+b.dataset.t});
     if(c==='remove'){if(confirm('Remove this player?'))send('remove',{id:b.dataset.id});return}
     if(c==='rename'){const v=prompt('New team name',S.teams[+b.dataset.t].name);if(v)send('rename',{team:+b.dataset.t,name:v});return}
-    if(c==='score'){const v=prompt('Set the score',S.teams[+b.dataset.t].score);if(v!==null)send('score',{team:+b.dataset.t,score:+v});return}
+    if(c==='score'){const wheel=S.phase==='wheel'&&S.w,v=prompt('Set the score',wheel?S.w.score[+b.dataset.t]:S.teams[+b.dataset.t].score);if(v!==null)send(wheel?'wscore':'score',{team:+b.dataset.t,score:+String(v).replace(/[^0-9]/g,'')});return}
     if(c==='fm')return send('fm',{ids:[$('#fm1').value,$('#fm2').value]});
     if(c==='newGame'&&!confirm('Start a brand-new game? Scores go back to 0.'))return;
     if(c==='finish'&&S.phase!=='fm'&&!confirm('Skip Fast Money and show the winner?'))return;
