@@ -14,7 +14,7 @@ const VOWELS='AEIOU'.split(''),CONS='BCDFGHJKLMNPQRSTVWXYZ'.split(''),FREE='RSTL
 const WCATS=['Family Inside Joke','Phrase','Food & Drink','Place','Song Title','Thing','Event','Before & After','What Are You Doing?'];
 const WHEEL_STARTER=[
  {cat:'Family Inside Joke',text:"What's burning?"},
- {cat:'Family Inside Joke',text:'Stop asking about grandbabies'},
+ {cat:'Family Inside Joke',text:'Where my grandbabies?'},
  {cat:'Family Inside Joke',text:'Rev up those fryers'},
  {cat:'Family Inside Joke',text:'Looking for Logan'},
  {cat:'Phrase',text:'Can I take a plate home'},
@@ -38,6 +38,8 @@ function wLayout(text){
 const wPuzzles=Q=>{const db=Q.filter(q=>q.section==='wheel').sort((a,b)=>a.position-b.position).map(q=>({id:q.id,cat:(q.labels&&q.labels.cat)||'Phrase',text:q.prompt,use:(q.labels&&q.labels.use)||'main'}));
   return db.length?db:WHEEL_STARTER.map((p,i)=>({id:'ws'+i,use:'main',...p}))};
 async function ensureWheel(Q){
+  const old=Q.find(q=>q.section==='wheel'&&/^stop asking about grandbabies$/i.test(q.prompt));
+  if(old){await sb.from('feud_questions').update({prompt:'Where my grandbabies?'}).eq('id',old.id);return 1}
   if(Q.some(q=>q.section==='wheel'))return 0;
   const base=Math.max(0,...Q.map(q=>q.position||0))+1;
   const rows=WHEEL_STARTER.map((p,i)=>({position:base+i,section:'wheel',prompt:p.text,kind:'open',max_answers:1,options:[],answers:[],decoys:[],use_survey:false,merges:{},labels:{cat:p.cat,use:p.use||'main'}}));

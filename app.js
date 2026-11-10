@@ -14,7 +14,7 @@ const CFG={
   plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i,5:/Chicken most likely retire/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v16 · Nov 9 · Wheel';
+const VERSION='v17 · Nov 9 · Wheel';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
