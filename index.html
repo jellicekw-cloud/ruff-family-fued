@@ -177,6 +177,23 @@ details.acc[open]>summary::after{transform:rotate(90deg)}
 .wl-spin svg{width:100%;height:100%;display:block}
 .wl-ptr{position:absolute;left:50%;top:-3.4vh;transform:translateX(-50%);width:0;height:0;border-left:2.6vh solid transparent;border-right:2.6vh solid transparent;border-top:5vh solid #fff;filter:drop-shadow(0 .6vh .6vh rgba(0,0,0,.5));z-index:2}
 .wl-res{min-height:12vh;text-align:center}.wl-res .t{font-family:Anton,Impact,sans-serif;font-size:9vh;color:var(--gold);text-shadow:0 .7vh 0 #7a5400;animation:pop .35s ease-out;line-height:1.05}.wl-res .s{font-size:3.4vh;font-weight:700;color:#fff;margin-top:1vh}
+/* most likely to */
+.mq{font-size:4vw;font-weight:800;text-align:center;line-height:1.2;padding:2vw 6vw 0}.mq.small{font-size:2.6vw;padding-top:.5vw;color:var(--muted)}
+.mvoted{flex:1;display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:1.2vw;padding:0 4vw}
+.mvoted span{font-size:2.2vw;font-weight:700;padding:1vw 2vw;border-radius:99vw;background:rgba(0,0,0,.28);color:var(--faint)}.mvoted span.on{background:rgba(47,191,113,.22);color:#fff}
+.mscore{position:absolute;right:3vw;top:2.6vw;display:none}
+.tv .mscore{position:static;display:block;text-align:center;font-size:1.8vw;color:var(--muted)}.mscore b{color:var(--gold);font-family:Anton,Impact,sans-serif;font-size:2.2vw}
+.mwin{font-family:Anton,Impact,sans-serif;font-size:7vw;color:var(--gold);text-align:center;line-height:1;text-shadow:0 .6vw 0 #7a5400;animation:pop .5s ease-out both;animation-delay:2s}
+.mbars{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1vw;padding:0 8vw;min-height:0}
+.mbar{display:grid;grid-template-columns:22vw 1fr 4vw;align-items:center;gap:1.4vw;font-size:2.2vw;font-weight:700}
+.mbar i{display:block;height:3vw;border-radius:1vw;background:linear-gradient(90deg,#2c6bed,#6f9cff);width:0;animation:grow 1s ease-out forwards;animation-delay:var(--d)}
+.mbar.top i{background:linear-gradient(90deg,#c99a1a,#f5c542)}.mbar b{font-family:Anton,Impact,sans-serif;color:var(--gold);font-size:2.6vw}
+.mbar .who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes grow{to{width:var(--w)}}
+.mcrown{font-size:3vw;background:rgba(245,197,66,.14);border:.3vw solid var(--gold);border-radius:99vw;padding:1vw 3vw}.mcrown b{color:var(--gold)}
+.mvote{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.mv{padding:16px 10px;border-radius:14px;border:3px solid transparent;background:#fff;color:#1d1440;font-weight:700;font-size:17px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.mv span{font-size:26px}.mv small{font-weight:500;color:#6a5f99}.mv.on{border-color:var(--gold);background:#fff4d1}
 /* wheel: phone + admin */
 .lgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
 .lk{aspect-ratio:1;border:0;border-radius:10px;background:#fff;color:#1d1440;font-family:Anton,Impact,sans-serif;font-size:24px}
@@ -191,6 +208,6 @@ details.acc[open]>summary::after{transform:rotate(90deg)}
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-<script>var _v=Date.now();document.write('<script src="wheel.js?v='+_v+'"><\/script><script src="app.js?v='+_v+'"><\/script>')</script>
+<script>var _v=Date.now();document.write('<script src="wheel.js?v='+_v+'"><\/script><script src="mlt.js?v='+_v+'"><\/script><script src="app.js?v='+_v+'"><\/script>')</script>
 </body>
 </html>
