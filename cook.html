@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Cook mode</title>
+<meta name="theme-color" content="#1d1440">
+<style>
+/* Standalone cook-mode page for recipes sent from Event HQ. Not linked from the game. */
+:root{--bg:#1d1440;--side:#140d30;--lav:#c9a7ff;--gold:#f5c542}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:#fff;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer}
+.wrap{min-height:100%;display:flex;flex-direction:column;padding:max(16px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;gap:10px}
+.top h1{font-size:19px;margin:0;flex:1;line-height:1.25}
+.tabs{display:flex;gap:6px;background:rgba(255,255,255,.08);border-radius:999px;padding:4px;margin:14px 0 10px}
+.tabs button{flex:1;border:0;background:none;color:#cfc4ea;border-radius:999px;padding:9px;font-weight:700;font-size:14px}
+.tabs button.on{background:var(--gold);color:var(--bg)}
+.ing button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid rgba(255,255,255,.09);color:#eee8f8;font-size:18px;padding:13px 4px;line-height:1.35}
+.ing button.done{color:rgba(255,255,255,.3);text-decoration:line-through}
+.ing .sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--lav);font-weight:800;padding:18px 4px 4px;border:0}
+.n{margin-top:6vh;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--lav);font-weight:800}
+.step{font-size:clamp(24px,6.6vw,40px);line-height:1.35;font-weight:650;margin:12px 0 0}
+.dots{display:flex;gap:5px;margin:auto 0 16px;flex-wrap:wrap;padding-top:24px}.dots i{flex:1;max-width:34px;height:6px;border-radius:6px;background:rgba(255,255,255,.18)}.dots i.on{background:var(--gold)}
+.nav{display:flex;gap:12px}.nav button{flex:1;border:0;border-radius:18px;padding:20px 10px;font-size:19px;font-weight:800}
+.pv{background:rgba(255,255,255,.12);color:#fff}.nx{background:var(--gold);color:var(--bg)}.nav button:disabled{opacity:.35}
+.all ol{padding-left:22px;margin:6px 0}.all li{font-size:17px;line-height:1.55;margin-bottom:12px}
+.meta{font-size:13px;color:#b8acd9;margin-top:4px}
+.notes{margin-top:14px;font-size:15px;line-height:1.5;color:#ddd3f2;background:rgba(255,255,255,.06);border-radius:12px;padding:12px}
+.msg{margin:auto;text-align:center;max-width:340px;line-height:1.5;color:#d8cff0}.msg b{display:block;font-size:22px;color:#fff;margin-bottom:8px}
+.awake{font-size:12px;color:#8f84b3;text-align:center;margin-top:10px}
+</style></head>
+<body><div class="wrap" id="app"><div class="msg"><b>🍳 Loading…</b></div></div>
+<script>
+(function(){
+  var app=document.getElementById('app');
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function fail(t){app.innerHTML='<div class="msg"><b>🍳 Cook mode</b>'+t+'</div>'}
+  var m=location.hash.match(/r=([A-Za-z0-9_-]+)/);
+  if(!m){fail('Open a recipe in Event HQ and tap <i>📱 Cook on my phone</i> to send it here.');return}
+  if(!window.DecompressionStream){fail('This browser is too old to open the recipe. Try Chrome.');return}
+  var b64=m[1].replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';
+  var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(function(txt){start(JSON.parse(txt))}).catch(function(){fail("That link didn't come through all the way. Scan the QR code again.")});
+
+  var lock=null;
+  function wake(){try{if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(function(l){lock=l}).catch(function(){})}catch(e){}}
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')wake()});
+
+  function start(r){
+    var key='cook:'+(r.n||'')+':'+(r.t||[]).length,st={tab:(r.t||[]).length?'steps':'ing',i:0,done:{}};
+    try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved)st=saved}catch(e){}
+    function keep(){try{sessionStorage.setItem(key,JSON.stringify(st))}catch(e){}}
+    document.title='🍳 '+(r.n||'Cook mode');wake();
+    function isSub(l){return /:$/.test(l)}
+    function draw(){
+      var steps=r.t||[],ing=r.i||[],h='<div class="top"><h1>🍳 '+esc(r.n)+(r.s?'<div class="meta">Serves '+esc(r.s)+'</div>':'')+'</h1></div>';
+      h+='<div class="tabs">'+(steps.length?'<button data-t="steps" class="'+(st.tab==='steps'?'on':'')+'">Step by step</button>':'')+'<button data-t="ing" class="'+(st.tab==='ing'?'on':'')+'">Ingredients</button>'+(steps.length?'<button data-t="all" class="'+(st.tab==='all'?'on':'')+'">All steps</button>':'')+'</div>';
+      if(st.tab==='ing'){h+='<div class="ing">'+ing.map(function(l,k){return isSub(l)?'<button class="sub" disabled>'+esc(l.replace(/:$/,''))+'</button>':'<button data-k="'+k+'" class="'+(st.done[k]?'done':'')+'">'+esc(l)+'</button>'}).join('')+'</div>'+(r.no?'<div class="notes">📝 '+esc(r.no)+'</div>':'')}
+      else if(st.tab==='all'){h+='<div class="all"><ol>'+steps.map(function(s){return '<li>'+esc(s)+'</li>'}).join('')+'</ol></div>'+(r.no?'<div class="notes">📝 '+esc(r.no)+'</div>':'')}
+      else{h+='<div class="n">Step '+(st.i+1)+' of '+steps.length+'</div><div class="step">'+esc(steps[st.i])+'</div><div class="dots">'+steps.map(function(_,k){return '<i class="'+(k<=st.i?'on':'')+'"></i>'}).join('')+'</div>'+
+        '<div class="nav"><button class="pv" data-go="-1"'+(st.i?'':' disabled')+'>‹ Back</button><button class="nx" data-go="1"'+(st.i<steps.length-1?'':' disabled')+'>'+(st.i<steps.length-1?'Next ›':'All done! 🎉')+'</button></div><div class="awake">Your screen stays on while this is open</div>'}
+      app.innerHTML=h;
+    }
+    app.onclick=function(e){var b=e.target.closest('button');if(!b)return;
+      if(b.dataset.t){st.tab=b.dataset.t;window.scrollTo(0,0)}
+      else if(b.dataset.k!=null){st.done[b.dataset.k]=!st.done[b.dataset.k]}
+      else if(b.dataset.go){st.i=Math.max(0,Math.min((r.t||[]).length-1,st.i+ +b.dataset.go))}
+      keep();draw()};
+    draw();
+  }
+})();
+</script></body></html>
