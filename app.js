@@ -8,13 +8,13 @@ const CFG={
   room:'RUFF',
   pin:'1126',
   teams:[{name:'Team Mac & Cheese',emoji:'🧀'},{name:'Team Rice & Peas',emoji:'🍚'}],
-  multipliers:[1,1,2,3,3],
+  multipliers:[1,1,2,2,3,3],
   fmTimes:[20,25],
   fmTarget:200,
-  plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i,5:/Chicken most likely retire/i} /* default question for these rounds */
+  plan:{1:/in a pair/i,2:/most leftovers/i,3:/kar\w*ke/i,4:/Chicken most likely retire/i,5:/smokes the most/i,6:/first grandbaby\?/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v19 · Nov 22 · Everybody in the Feud';
+const VERSION='v20 · Nov 22 · 6-round lineup';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
