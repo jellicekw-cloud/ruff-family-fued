@@ -14,7 +14,7 @@ const CFG={
   plan:{1:/first grandbaby\?/i,2:/grandbaby will be/i,3:/Bubb always loses/i,4:/Schatze & Lightweight/i,5:/Chicken most likely retire/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v18 · Nov 9 · Most Likely To';
+const VERSION='v19 · Nov 22 · Everybody in the Feud';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
@@ -76,6 +76,14 @@ async function loadQuestions(){
     const up={max_answers:st.max_answers,options:st.options,answers:st.answers,decoys:st.decoys};
     try{await sb.from('feud_questions').update(up).eq('id',q.id);Object.assign(q,up)}catch(_e){}
   }
+  { /* Nov 22: swap the generic Fast Money questions for one per family member */
+    const OLD_FAST=['Name a Thanksgiving dessert.','Name something you bring to a potluck.','Name a reason to call in "sick."','Name something in your junk drawer.','Name a word you would use to describe really good food.'];
+    const NEW_FAST=STARTER.filter(x=>x.section==='fast');
+    for(const q of qs){const k=OLD_FAST.indexOf(q.prompt);if(q.section!=='fast'||k<0||!NEW_FAST[k])continue;
+      const st=NEW_FAST[k];if(qs.some(o=>o.prompt===st.prompt))continue;
+      const up={prompt:st.prompt,answers:st.answers,decoys:st.decoys,merges:{}};
+      try{await sb.from('feud_questions').update(up).eq('id',q.id);Object.assign(q,up)}catch(_e){}}
+  }
   return qs;
 }
 async function loadResponses(){const {data,error}=await sb.from('feud_responses').select('*');if(error)throw error;return data||[]}
@@ -98,18 +106,19 @@ const STARTER=[
  {section:'main',kind:'vote',max_answers:2,prompt:'Name a song that gets everybody on the dance floor.',options:['Before I Let Go (Frankie Beverly & Maze)','Big Poppa (Biggie)','Back That Azz Up (Juvenile)','Motion Party (BossMan Dlow)'],answers:A(['Before I Let Go (Frankie Beverly & Maze)',35],['Back That Azz Up (Juvenile)',27],['Big Poppa (Biggie)',22],['Motion Party (BossMan Dlow)',16]),decoys:['Ghetto Love Story (Rambo)','Pop Dat Thang (DaBaby)','TMU (Don Toliver)','Yacht Club (Rick Ross)','Wobble','Knuck If You Buck (Crime Mob)','Act Up (City Girls)','Electric Slide']},
  {section:'main',kind:'vote',max_answers:2,prompt:'Name something that makes a party turn up.',options:['The DJ','Drinks','Food','Dancing','Family drama','Karaoke','Good vibes','The guest list'],answers:A(['The DJ',30],['Drinks',22],['Food',16],['Dancing',12],['Good vibes',11],['Family drama',9]),decoys:['Balloons','Games','A photo booth','Fireworks','The guest of honor','A live band']},
  {section:'finale',kind:'vote',max_answers:1,prompt:'Where should our next family trip be?',options:['Amsterdam','Hawaii','Paris'],answers:A(['Amsterdam',34],['Hawaii',33],['Paris',33]),decoys:['Tokyo','London','Jamaica','Cancún','Dubai']},
- {section:'fast',prompt:'Name a Thanksgiving dessert.',answers:A(['Sweet potato pie',40],['Peach cobbler',22],['Banana pudding',15],['Pound cake',13],['Pecan pie',10]),decoys:['Apple pie','Cheesecake','Red velvet cake','Brownies','Ice cream']},
- {section:'fast',prompt:'Name something you bring to a potluck.',answers:A(['Mac & cheese',30],['Dessert',25],['Drinks',18],['Chips',12],['Paper plates',9],['Potato salad',6]),decoys:['Ice','Napkins','Bread','Fruit tray','Wings','Salad']},
- {section:'fast',prompt:'Name a reason to call in "sick."',answers:A(['Actually sick',30],['Hangover',25],['Too tired',18],['Mental health day',14],['Family emergency',8],['Car trouble',5]),decoys:['Concert tickets','Bad weather','Kid is sick','Doctor appointment','Big game','Vacation']},
- {section:'fast',prompt:'Name something in your junk drawer.',answers:A(['Batteries',30],['Rubber bands',22],['Pens',18],['Takeout menus',12],['Tape',10],['Old keys',8]),decoys:['Scissors','Coupons','Lighters','Twist ties','Screwdriver','Chargers']},
- {section:'fast',prompt:'Name a word you would use to describe really good food.',answers:A(['Delicious',35],["Bussin'",25],['Fire',18],['Yummy',12],['Slaps',10]),decoys:['Tasty','Amazing','Scrumptious','Divine','Perfect','Lit']}
+ {section:'fast',prompt:'"The champ\'s here!" Name a game Kevin swears he\'s the champ at.',answers:A(['Spades',30],['Dominoes',28],['Bid whist',14],['Uno',12],['Tonk',9],['Madden',7]),decoys:['Monopoly','Connect Four','Chess','Checkers','Pool','Cornhole']},
+ {section:'fast',prompt:'KJ took a birthday nap on the side of the house. Name something somebody might mistake him for.',answers:A(['A dog',40],['A pile of clothes',18],['A trash bag',14],['A bush',12],['A raccoon',10],['A log',6]),decoys:['A cat','A bear','A rug','A scarecrow','A pillow','A shadow']},
+ {section:'fast',prompt:'Garry has "bad knees." Name something that would make him run like they\'re brand new.',answers:A(['Paintball',32],['A free plate',20],['A bee',15],['A dog',13],['The ice cream truck',10],['Last piece of chicken',10]),decoys:['A snake','Money on the ground','A spider','Rain','Soul Train line','A raffle win']},
+ {section:'fast',prompt:'Lil Bit wakes up in bed asking "How did I get here?!" Name who (or what) carried her to bed.',answers:A(['Aunt Jae',30],['Thor',22],['She sleepwalked',18],['Angels',12],['Aliens',10],['She teleported',8]),decoys:['A ghost','Kevin','Her mama','Magic','A forklift','Nobody']},
+ {section:'fast',prompt:'"Oh Gosh Boi!" Name something that makes Thor say it.',answers:A(['Seeing the bill',28],['A bad call in the game',22],['Burnt food',16],['Family gossip',14],['A surprise',12],["Jae's shopping bags",8]),decoys:['A spider','Cold weather','A bad driver','A big plate','Gas prices','A jump scare']}
 ];
 const EXTRA=[
  {section:'main',kind:'vote',max_answers:1,prompt:'What Asian country will Chicken most likely retire to?',options:['Japan 🇯🇵','South Korea 🇰🇷','Thailand 🇹🇭','Vietnam 🇻🇳','The Philippines 🇵🇭','Bali, Indonesia 🇮🇩'],answers:A(['Japan 🇯🇵',35],['South Korea 🇰🇷',20],['Thailand 🇹🇭',15],['Bali, Indonesia 🇮🇩',12],['The Philippines 🇵🇭',10],['Vietnam 🇻🇳',8]),decoys:["Florida, she's never leaving 🤣",'Singapore','China','India','Malaysia','Cambodia']},
  {section:'main',kind:'vote',max_answers:1,prompt:"Who's giving Jae her first grandbaby?",options:['Schatze & Lightweight','Bubb & Shots','Nobody, stop asking! 🤣'],answers:A(['Nobody, stop asking! 🤣',45],['Schatze & Lightweight',30],['Bubb & Shots',25]),decoys:['Chicken','Thor','Lil Bit','The neighbor','The mailman']},
  {section:'main',kind:'vote',max_answers:1,prompt:"Jae's first grandbaby will be…",options:['A boy 💙','A girl 💗','Twins 👯','Triplets 😱','A grand-puppy instead 🐶'],answers:A(['A grand-puppy instead 🐶',30],['A girl 💗',25],['A boy 💙',22],['Twins 👯',15],['Triplets 😱',8]),decoys:['Quadruplets','A goldfish','A surprise!','A grand-kitten','Nothing, ever']},
  {section:'main',kind:'vote',max_answers:1,prompt:'How many times a week do Schatze & Lightweight break up?',options:['Never, they\'re solid 💕','Once','2 or 3 times','Every other day','Daily, like clockwork',"I've lost count 🤣"],answers:A(["I've lost count 🤣",30],['Daily, like clockwork',24],['2 or 3 times',18],['Every other day',14],['Once',8],['Never, they\'re solid 💕',6]),decoys:['Twice a day','Only on holidays','Every weekend','Once a month','Hourly','Only when the phone dies']},
- {section:'main',prompt:'Name something Bubb always loses on a trip.',answers:A(['Phone charger',30],['AirPods',22],['Sunglasses',16],['Room key',12],['ID',10],['Wallet',10]),decoys:['Passport','Boarding pass','Hat','Jacket','Luggage','His mind','Keys','Toothbrush']}
+ {section:'main',prompt:'Name something Bubb always loses on a trip.',answers:A(['Phone charger',30],['AirPods',22],['Sunglasses',16],['Room key',12],['ID',10],['Wallet',10]),decoys:['Passport','Boarding pass','Hat','Jacket','Luggage','His mind','Keys','Toothbrush']},
+ {section:'main',prompt:'Name an excuse Kevin gives when he loses at cards or dominoes.',answers:A(['Bad hand',32],['His partner messed up',25],['Somebody cheated',18],['He let you win',12],['He was distracted',8],['The lights were in his eyes',5]),decoys:['He was tired','He was drinking','The table was crooked','Wrong seat','He was hungry','Practice round']}
 ];
 async function ensureExtras(Q){
   let added=0;
