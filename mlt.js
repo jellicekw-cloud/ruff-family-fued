@@ -4,6 +4,10 @@
 
 const MLT={rounds:10,secs:25,pts:100};
 const MLT_STARTER=[
+ 'Who\'s most likely to say "Oh Gosh Boi!"? 😱',
+ 'Who\'s most likely to walk in yelling "The champ\'s here!"? 🏆',
+ 'Who\'s most likely to come home from vacation with a scar? 🩹',
+ 'Who\'s most likely to fall asleep at the party and wake up asking "How did I get here?" 😴',
  'Who\'s most likely to be "Looking for Logan"? 👀',
  'Who\'s most likely to yell "What\'s burning?!"',
  'Who\'s most likely to miss their flight?',
@@ -27,10 +31,19 @@ const MLT_STARTER=[
  'Who\'s most likely to forget whose birthday it is?',
  'Who\'s most likely to say "I\'m on my way" while still in bed?'
 ];
-const mltPrompts=Q=>{const db=Q.filter(q=>q.section==='mlt').sort((a,b)=>a.position-b.position).map(q=>({id:q.id,text:q.prompt}));
-  return db.length?db:MLT_STARTER.map((t,i)=>({id:'ms'+i,text:t}))};
+/* Family inside jokes: always get played (the rest of the 10 are random) */
+const MLT_NEW=MLT_STARTER.slice(0,4);
+const MLT_FAMILY=[/looking for logan/i,/what's burning/i,/back porch/i,/first grandbaby/i,/oh gosh boi/i,/champ's here/i,/with a scar/i,/how did i get here/i];
+const mltPin=t=>MLT_FAMILY.some(re=>re.test(t));
+const mltPrompts=Q=>{const db=Q.filter(q=>q.section==='mlt').sort((a,b)=>a.position-b.position).map(q=>({id:q.id,text:q.prompt,pin:mltPin(q.prompt)}));
+  return db.length?db:MLT_STARTER.map((t,i)=>({id:'ms'+i,text:t,pin:mltPin(t)}))};
 async function ensureMLT(Q){
-  if(Q.some(q=>q.section==='mlt'))return 0;
+  const cur=Q.filter(q=>q.section==='mlt');
+  if(cur.length){ /* Nov 22: add the new family jokes once */
+    if(MLT_NEW.some(t=>cur.some(q=>q.prompt===t)))return 0;
+    const b=Math.max(0,...Q.map(q=>q.position||0))+1;
+    const {error}=await sb.from('feud_questions').insert(MLT_NEW.map((t,i)=>({position:b+i,section:'mlt',prompt:t,kind:'open',max_answers:1,options:[],answers:[],decoys:[],use_survey:false,merges:{},labels:{}})));
+    if(error){toast('Could not add new Most Likely To questions: '+error.message);return 0}return MLT_NEW.length}
   const base=Math.max(0,...Q.map(q=>q.position||0))+1;
   const rows=MLT_STARTER.map((t,i)=>({position:base+i,section:'mlt',prompt:t,kind:'open',max_answers:1,options:[],answers:[],decoys:[],use_survey:false,merges:{},labels:{}}));
   const {error}=await sb.from('feud_questions').insert(rows);if(error){toast('Could not add Most Likely To questions: '+error.message);return 0}
@@ -56,7 +69,9 @@ function makeMLT(api){
     const S=getS();if(!S.m||S.m.stage==='over')S.m=fresh();
     if(S.m.round&&S.phase!=='mlt'&&S.m.stage==='vote'){S.phase='mlt';return push()}
     const m=S.m,Q=await loadQ(),all=mltPrompts(Q),left=all.filter(p=>!m.used.includes(p.id));
-    const p=(qid&&all.find(x=>x.id===qid))||left[Math.floor(Math.random()*left.length)]||all[0];if(!p)return toast('No questions yet');
+    const pins=left.filter(x=>x.pin),roundsLeft=Math.max(1,MLT.rounds-m.round);
+    const pool=pins.length>=roundsLeft?pins:(pins.length&&Math.random()<pins.length/roundsLeft?pins:left.filter(x=>!x.pin).length?left.filter(x=>!x.pin):left);
+    const p=(qid&&all.find(x=>x.id===qid))||pool[Math.floor(Math.random()*pool.length)]||all[0];if(!p)return toast('No questions yet');
     m.round++;m.used.push(p.id);m.q={id:p.id,text:p.text};m.votes={};m.top=[];m.tally=[];m.gained=[];m.stage='vote';m.endsAt=Date.now()+MLT.secs*1000;
     S.phase='mlt';setEv('none');push();
   }

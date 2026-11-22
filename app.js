@@ -14,7 +14,7 @@ const CFG={
   plan:{1:/in a pair/i,2:/most leftovers/i,3:/kar\w*ke/i,4:/Chicken most likely retire/i,5:/smokes the most/i,6:/first grandbaby\?/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v20 · Nov 22 · 6-round lineup';
+const VERSION='v21 · Nov 22 · Champ, Oh Gosh Boi & the scar';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);

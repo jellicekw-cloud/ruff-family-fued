@@ -14,9 +14,11 @@ const VOWELS='AEIOU'.split(''),CONS='BCDFGHJKLMNPQRSTVWXYZ'.split(''),FREE='RSTL
 const WCATS=['Family Inside Joke','Phrase','Food & Drink','Place','Song Title','Thing','Event','Before & After','What Are You Doing?'];
 const WHEEL_STARTER=[
  {cat:'Family Inside Joke',text:"What's burning?"},
+ {cat:'Family Inside Joke',text:'Looking for Logan'},
+ {cat:'Family Catchphrase',text:"The champ's here"},
+ {cat:'Family Catchphrase',text:'Oh gosh boi'},
  {cat:'Family Inside Joke',text:'Where my grandbabies?'},
  {cat:'Family Inside Joke',text:'Rev up those fryers'},
- {cat:'Family Inside Joke',text:'Looking for Logan'},
  {cat:'Phrase',text:'Can I take a plate home'},
  {cat:'Phrase',text:'Spend what you have and not a penny more'},
  {cat:'Food & Drink',text:'Banana pudding and peach cobbler'},
@@ -40,7 +42,19 @@ const wPuzzles=Q=>{const db=Q.filter(q=>q.section==='wheel').sort((a,b)=>a.posit
 async function ensureWheel(Q){
   const old=Q.find(q=>q.section==='wheel'&&/^stop asking about grandbabies$/i.test(q.prompt));
   if(old){await sb.from('feud_questions').update({prompt:'Where my grandbabies?'}).eq('id',old.id);return 1}
-  if(Q.some(q=>q.section==='wheel'))return 0;
+  const cur=Q.filter(q=>q.section==='wheel');
+  if(cur.length){ /* Nov 22: add the champ + Oh gosh boi once, and put the family jokes first (first 5 get played) */
+    const add=WHEEL_STARTER.filter(p=>/champ's here|oh gosh boi/i.test(p.text));
+    if(add.some(p=>cur.some(q=>q.prompt.toLowerCase()===p.text.toLowerCase())))return 0;
+    const base=Math.min(...cur.map(q=>q.position||0));
+    const {error}=await sb.from('feud_questions').insert(add.map((p,i)=>({position:base+1000+i,section:'wheel',prompt:p.text,kind:'open',max_answers:1,options:[],answers:[],decoys:[],use_survey:false,merges:{},labels:{cat:p.cat,use:'main'}})));
+    if(error){toast('Could not add new wheel puzzles: '+error.message);return 0}
+    const {data}=await sb.from('feud_questions').select('*').order('position');
+    const rows=(data||[]).filter(q=>q.section==='wheel'),first=["what's burning?",'looking for logan',"the champ's here",'oh gosh boi','where my grandbabies?','rev up those fryers'];
+    const rank=q=>{const k=first.indexOf(q.prompt.toLowerCase());return k<0?100+rows.indexOf(q):k};
+    const sorted=[...rows].sort((a,b)=>rank(a)-rank(b));
+    for(let i=0;i<sorted.length;i++)await sb.from('feud_questions').update({position:base+i}).eq('id',sorted[i].id);
+    return add.length}
   const base=Math.max(0,...Q.map(q=>q.position||0))+1;
   const rows=WHEEL_STARTER.map((p,i)=>({position:base+i,section:'wheel',prompt:p.text,kind:'open',max_answers:1,options:[],answers:[],decoys:[],use_survey:false,merges:{},labels:{cat:p.cat,use:p.use||'main'}}));
   const {error}=await sb.from('feud_questions').insert(rows);if(error){toast('Could not add wheel puzzles: '+error.message);return 0}
