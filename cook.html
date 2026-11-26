@@ -13,6 +13,7 @@ button{font:inherit;cursor:pointer}
 .wrap{min-height:100%;display:flex;flex-direction:column;padding:max(16px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom))}
 .top{display:flex;align-items:center;gap:10px}
 .top h1{font-size:19px;margin:0;flex:1;line-height:1.25}
+.back{border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:8px 14px;font-weight:700;font-size:14px;white-space:nowrap}
 .tabs{display:flex;gap:6px;background:rgba(255,255,255,.08);border-radius:999px;padding:4px;margin:14px 0 10px}
 .tabs button{flex:1;border:0;background:none;color:#cfc4ea;border-radius:999px;padding:9px;font-weight:700;font-size:14px}
 .tabs button.on{background:var(--gold);color:var(--bg)}
@@ -25,44 +26,92 @@ button{font:inherit;cursor:pointer}
 .nav{display:flex;gap:12px}.nav button{flex:1;border:0;border-radius:18px;padding:20px 10px;font-size:19px;font-weight:800}
 .pv{background:rgba(255,255,255,.12);color:#fff}.nx{background:var(--gold);color:var(--bg)}.nav button:disabled{opacity:.35}
 .all ol{padding-left:22px;margin:6px 0}.all li{font-size:17px;line-height:1.55;margin-bottom:12px}
-.meta{font-size:13px;color:#b8acd9;margin-top:4px}
+.meta{font-size:13px;color:#b8acd9;margin-top:4px;font-weight:500}
 .notes{margin-top:14px;font-size:15px;line-height:1.5;color:#ddd3f2;background:rgba(255,255,255,.06);border-radius:12px;padding:12px}
 .msg{margin:auto;text-align:center;max-width:340px;line-height:1.5;color:#d8cff0}.msg b{display:block;font-size:22px;color:#fff;margin-bottom:8px}
 .awake{font-size:12px;color:#8f84b3;text-align:center;margin-top:10px}
+/* cookbook list */
+.bk h1{font-size:24px;margin:6px 0 2px}
+.bk .meta{margin-bottom:16px}
+.dish{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:16px;padding:16px;margin-bottom:10px}
+.dish b{display:block;font-size:18px}.dish small{display:block;color:#b8acd9;font-size:13px;margin-top:3px}
+.dish .go{margin-left:auto;color:var(--gold);font-size:22px;font-weight:800}
+.dish.seen{background:rgba(255,255,255,.04)}.dish.seen b{color:#cfc4ea}
+.dish.sub{padding:12px 16px}.dish.sub b{font-size:16px}
+.grp{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--lav);font-weight:800;margin:18px 4px 8px}
 </style></head>
 <body><div class="wrap" id="app"><div class="msg"><b>🍳 Loading…</b></div></div>
 <script>
 (function(){
+  /* Links:
+     #r=<packed recipe>      one recipe, inside the link
+     #b=<packed cookbook>    several recipes, inside the link
+     #c=<id>                 a cookbook saved in the game database (for menus too big for a QR code) */
+  var DB='https://sllhzpqohpwuvxczaksg.supabase.co',KEY='sb_publishable_m8QCuCIZm4Ho99JE_lNQRA_dO3KiRg6';
   var app=document.getElementById('app');
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
   function fail(t){app.innerHTML='<div class="msg"><b>🍳 Cook mode</b>'+t+'</div>'}
-  var m=location.hash.match(/r=([A-Za-z0-9_-]+)/);
-  if(!m){fail('Open a recipe in Event HQ and tap <i>📱 Cook on my phone</i> to send it here.');return}
-  if(!window.DecompressionStream){fail('This browser is too old to open the recipe. Try Chrome.');return}
-  var b64=m[1].replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';
-  var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-  new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(function(txt){start(JSON.parse(txt))}).catch(function(){fail("That link didn't come through all the way. Scan the QR code again.")});
-
+  function unpack(s){
+    var b64=s.replace(/-/g,'+').replace(/_/g,'/');while(b64.length%4)b64+='=';
+    var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(JSON.parse);
+  }
   var lock=null;
   function wake(){try{if('wakeLock' in navigator)navigator.wakeLock.request('screen').then(function(l){lock=l}).catch(function(){})}catch(e){}}
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')wake()});
+  function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
 
-  function start(r){
+  var h=location.hash,m;
+  if((m=h.match(/r=([A-Za-z0-9_-]+)/))){
+    if(!window.DecompressionStream)return fail('This browser is too old to open the recipe. Try Chrome.');
+    unpack(m[1]).then(function(r){start(r)}).catch(function(){fail("That link didn't come through all the way. Scan the QR code again.")});
+  }else if((m=h.match(/b=([A-Za-z0-9_-]+)/))){
+    if(!window.DecompressionStream)return fail('This browser is too old to open the recipes. Try Chrome.');
+    unpack(m[1]).then(book).catch(function(){fail("That link didn't come through all the way. Scan the QR code again.")});
+  }else if((m=h.match(/c=([A-Za-z0-9-]+)/))){
+    var id=m[1],ck='cookbook:'+id;
+    fetch(DB+'/rest/v1/feud_questions?id=eq.'+id+'&select=labels',{headers:{apikey:KEY},cache:'no-store'})
+      .then(function(res){if(!res.ok)throw 0;return res.json()})
+      .then(function(rows){var b=rows&&rows[0]&&rows[0].labels&&rows[0].labels.book;if(!b)throw 1;store(ck,b);book(b)})
+      .catch(function(e){var b=store(ck);if(b)return book(b,true);
+        fail(e===1?'This cookbook was removed. Send it again from Event HQ.':"Couldn't load the recipes. Check your Wi-Fi, then pull down to refresh.<br><br><small>If it still won't load, the game database may be paused. Restore it in Supabase.</small>")});
+  }else fail('Open an event in Event HQ and tap <i>📱 All recipes to my phone</i>, or open a recipe and tap <i>📱 Cook on my phone</i>.');
+
+  /* ---------- cookbook list ---------- */
+  function book(b,offline){
+    var list=b.r||[],seenKey='seen:'+(b.n||''),seen=store(seenKey)||{};
+    function draw(){
+      document.title='🍳 '+(b.n||'Recipes');window.scrollTo(0,0);
+      var mains=list.filter(function(r){return !r.sub}),subs=list.filter(function(r){return r.sub});
+      function row(r){var k=list.indexOf(r);return '<button class="dish'+(r.sub?' sub':'')+(seen[r.n]?' seen':'')+'" data-k="'+k+'"><span><b>'+(seen[r.n]?'✓ ':'')+esc(r.n)+'</b>'+
+        '<small>'+[r.s?'Serves '+esc(r.s):'',(r.t||[]).length?(r.t.length+' step'+(r.t.length>1?'s':'')):'',r.x&&r.x!==1?'Making '+esc(r.xl||r.x+'×'):''].filter(Boolean).join(' · ')+'</small></span><span class="go">›</span></button>'}
+      app.innerHTML='<div class="bk"><h1>🍳 '+esc(b.n||'Recipes')+'</h1><div class="meta">'+mains.length+' dish'+(mains.length===1?'':'es')+' · tap one to start cooking'+(offline?' · <i>saved copy</i>':'')+'</div>'+
+        mains.map(row).join('')+(subs.length?'<div class="grp">Goes into the dishes above</div>'+subs.map(row).join(''):'')+'</div>';
+      app.onclick=function(e){var x=e.target.closest('[data-k]');if(!x)return;var r=list[+x.dataset.k];seen[r.n]=1;store(seenKey,seen);start(r,draw)};
+    }
+    draw();
+  }
+
+  /* ---------- one recipe ---------- */
+  function start(r,back){
     var key='cook:'+(r.n||'')+':'+(r.t||[]).length,st={tab:(r.t||[]).length?'steps':'ing',i:0,done:{}};
     try{var saved=JSON.parse(sessionStorage.getItem(key)||'null');if(saved)st=saved}catch(e){}
     function keep(){try{sessionStorage.setItem(key,JSON.stringify(st))}catch(e){}}
-    document.title='🍳 '+(r.n||'Cook mode');wake();
+    document.title='🍳 '+(r.n||'Cook mode');wake();window.scrollTo(0,0);
     function isSub(l){return /:$/.test(l)}
     function draw(){
-      var steps=r.t||[],ing=r.i||[],h='<div class="top"><h1>🍳 '+esc(r.n)+(r.s?'<div class="meta">Serves '+esc(r.s)+'</div>':'')+'</h1></div>';
+      var steps=r.t||[],ing=r.i||[],h='<div class="top">'+(back?'<button class="back" data-back="1">‹ All dishes</button>':'')+'<h1>🍳 '+esc(r.n)+(r.s?'<div class="meta">Serves '+esc(r.s)+'</div>':'')+'</h1></div>';
       h+='<div class="tabs">'+(steps.length?'<button data-t="steps" class="'+(st.tab==='steps'?'on':'')+'">Step by step</button>':'')+'<button data-t="ing" class="'+(st.tab==='ing'?'on':'')+'">Ingredients</button>'+(steps.length?'<button data-t="all" class="'+(st.tab==='all'?'on':'')+'">All steps</button>':'')+'</div>';
       if(st.tab==='ing'){h+='<div class="ing">'+ing.map(function(l,k){return isSub(l)?'<button class="sub" disabled>'+esc(l.replace(/:$/,''))+'</button>':'<button data-k="'+k+'" class="'+(st.done[k]?'done':'')+'">'+esc(l)+'</button>'}).join('')+'</div>'+(r.no?'<div class="notes">📝 '+esc(r.no)+'</div>':'')}
       else if(st.tab==='all'){h+='<div class="all"><ol>'+steps.map(function(s){return '<li>'+esc(s)+'</li>'}).join('')+'</ol></div>'+(r.no?'<div class="notes">📝 '+esc(r.no)+'</div>':'')}
       else{h+='<div class="n">Step '+(st.i+1)+' of '+steps.length+'</div><div class="step">'+esc(steps[st.i])+'</div><div class="dots">'+steps.map(function(_,k){return '<i class="'+(k<=st.i?'on':'')+'"></i>'}).join('')+'</div>'+
-        '<div class="nav"><button class="pv" data-go="-1"'+(st.i?'':' disabled')+'>‹ Back</button><button class="nx" data-go="1"'+(st.i<steps.length-1?'':' disabled')+'>'+(st.i<steps.length-1?'Next ›':'All done! 🎉')+'</button></div><div class="awake">Your screen stays on while this is open</div>'}
+        '<div class="nav"><button class="pv" data-go="-1"'+(st.i?'':' disabled')+'>‹ Back</button>'+
+        (st.i<steps.length-1?'<button class="nx" data-go="1">Next ›</button>':back?'<button class="nx" data-back="1">All done! 🎉</button>':'<button class="nx" disabled>All done! 🎉</button>')+
+        '</div><div class="awake">Your screen stays on while this is open</div>'}
       app.innerHTML=h;
     }
     app.onclick=function(e){var b=e.target.closest('button');if(!b)return;
+      if(b.dataset.back){if(back)back();return}
       if(b.dataset.t){st.tab=b.dataset.t;window.scrollTo(0,0)}
       else if(b.dataset.k!=null){st.done[b.dataset.k]=!st.done[b.dataset.k]}
       else if(b.dataset.go){st.i=Math.max(0,Math.min((r.t||[]).length-1,st.i+ +b.dataset.go))}
