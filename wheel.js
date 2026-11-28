@@ -141,6 +141,7 @@ function makeWheel(api){
       if(w.stage==='solving'){setEv('nope');passTurn();return push()}
       if((w.stage==='bonusGo'||w.stage==='bonusTime'||w.stage==='bonusReady')&&w.bonus){w.bonus.won=false;openAll();w.stage='bonusEnd';setEv('nope');return push()}
     }
+    if(c==='wfor'&&w.active)return act({id:w.active,a:p.a,L:p.L}); /* host plays for the person who's up */
     if(c==='wpass'&&['spin','pick','vowel','solving'].includes(w.stage)){passTurn();return push()}
     if(c==='wskipToss'&&w.stage==='toss'){return tossTimeout()}
     if(c==='wgiveup'&&w.pz&&!['solved','bonusEnd','over'].includes(w.stage))return solved(null,0,'nobody');
@@ -152,7 +153,12 @@ function makeWheel(api){
   function tick(){
     const S=getS(),w=S&&S.w;if(!w||S.phase!=='wheel')return;const now=Date.now();
     if(w.stage==='toss'&&w.toss&&!w.toss.buzzed){const t=w.toss;
-      if(t.revealed<t.cap&&now>=t.nextAt){const h=hidden();if(h.length>1){w.open.push(h[Math.floor(Math.random()*h.length)]);t.revealed++;t.nextAt=now+1500;SFX.tick();push()}else t.revealed=t.cap}
+      if(t.revealed<t.cap&&now>=t.nextAt){
+        /* reveal a whole letter at a time (every R, not just one), never the last letter left */
+        const txt=w.pz.text,left=[...new Set(hidden().map(i=>txt[i]))];
+        if(left.length>1){const cons=left.filter(L=>CONS.includes(L)),pool=cons.length?cons:left,L=pool[Math.floor(Math.random()*pool.length)];
+          t.revealed+=reveal(L);if(!w.called.includes(L))w.called.push(L);t.nextAt=now+2200;setEv('letters',{L,count:1,quiet:true});push()}
+        else t.revealed=t.cap}
       else if(t.revealed>=t.cap){if(!t.doneAt){t.doneAt=now+5000}else if(now>=t.doneAt)tossTimeout()}}
     if(w.stage==='spinning'&&w.landAt&&now>=w.landAt)land();
     if(w.stage==='bonusGo'&&w.bonus.endsAt&&now>=w.bonus.endsAt){w.stage='bonusTime';setEv('strike',{count:1,quiet:false});push()}
@@ -291,7 +297,14 @@ function wheelHost(S,Q,pname,tName){
       actions=w.toss&&w.toss.buzzed?judge:`<button class="btn block" data-c="wskipToss">⏭ Skip toss-up</button>`;break;
     case 'spin':case 'pick':case 'vowel':case 'spinning':
       status=`${pname(w.active)}'s turn (${tName(w.turn)}) · this puzzle: ${tName(0)} $${w.bank[0]} · ${tName(1)} $${w.bank[1]}`;
-      actions=`<div class="row"><button class="btn" style="flex:1" data-c="wpass">⏭ Pass the turn</button><button class="btn" style="flex:1" data-c="wgiveup">👀 Reveal (nobody got it)</button></div>`;break;
+      {const pzt=w.pz?w.pz.text:'',cl=CONS.some(L=>!w.called.includes(L)&&pzt.includes(L)),vl=VOWELS.some(L=>!w.called.includes(L)&&pzt.includes(L));
+       const keys=ls=>`<div class="lgrid">${ls.map(L=>`<button class="lk" data-c="wfor" data-a="letter" data-l="${L}" ${w.called.includes(L)?'disabled':''}>${L}</button>`).join('')}</div>`;
+       const forThem=w.stage==='spin'?`<div class="sec-label">Their phone not working? Do it for ${pname(w.active)}:</div>
+         <button class="btn gold block" data-c="wfor" data-a="spin" ${cl?'':'disabled'}>🎡 Spin for ${pname(w.active)}</button>
+         <div class="row" style="margin-top:8px"><button class="btn" style="flex:1" data-c="wfor" data-a="buy" ${w.bank[w.turn]>=WHEEL.vowel&&vl?'':'disabled'}>Buy a vowel</button><button class="btn green" style="flex:1" data-c="wfor" data-a="solve">🙋 Solve</button></div>`
+        :w.stage==='pick'?`<div class="sec-label">$${WEDGES[w.wedge].v}! Tap the consonant ${pname(w.active)} says:</div>${keys(CONS)}`
+        :w.stage==='vowel'?`<div class="sec-label">Tap the vowel ${pname(w.active)} says:</div>${keys(VOWELS)}<button class="btn block" style="margin-top:8px" data-c="wfor" data-a="back">‹ Never mind</button>`:'';
+       actions=`${forThem}<div style="height:12px"></div><div class="row"><button class="btn" style="flex:1" data-c="wpass">⏭ Pass the turn</button><button class="btn" style="flex:1" data-c="wgiveup">👀 Reveal (nobody got it)</button></div>`;}break;
     case 'solving':status=`${pname(w.active)} is solving out loud. Did they get it?`;actions=judge;break;
     case 'solved':{const more=w.round<WHEEL.rounds&&unused.length;status=w.win&&w.win.team!=null?`${tName(w.win.team)} got it! +$${w.win.amt}`:'Nobody got it.';
       const bt=w.score[0]===w.score[1]?null:(w.score[0]>w.score[1]?0:1),ps=t=>S.order.filter(id=>S.players[id]&&S.players[id].team===t);

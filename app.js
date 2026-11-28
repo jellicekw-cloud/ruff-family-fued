@@ -14,7 +14,7 @@ const CFG={
   plan:{1:/in a pair/i,2:/most leftovers/i,3:/kar\w*ke/i,4:/Chicken most likely retire/i,5:/smokes the most/i,6:/first grandbaby\?/i} /* default question for these rounds */
 };
 const MOCK=/[?&]mock=1/.test(location.search);
-const VERSION='v21 · Nov 22 · Champ, Oh Gosh Boi & the scar';
+const VERSION='v22 · Nov 27 · Wheel fixes';
 
 /* ============ Helpers ============ */
 const $=s=>document.querySelector(s);
@@ -654,10 +654,13 @@ function joinPage(){
   }
   function start(){
     joined=true;pstore.set('joinedRoom',CFG.room);app().innerHTML=`<div class="wrap"><p class="muted">Connecting to the TV…</p></div>`;
-    ch=joinChannel((ev,p)=>{if(ev==='state'){S=p;off=(p._t||Date.now())-Date.now();if(!S.players[me.id])ch.send('hello',{id:me.id,name:me.name,team:me.team});draw()}});
+    let heard=Date.now();
+    ch=joinChannel((ev,p)=>{if(ev==='state'){heard=Date.now();S=p;off=(p._t||Date.now())-Date.now();if(!S.players[me.id])ch.send('hello',{id:me.id,name:me.name,team:me.team});draw()}});
     ch.ready.then(()=>{ch.send('hello',{id:me.id,name:me.name,team:me.team});ch.send('ask',{})});
     const vis=()=>{if(document.visibilityState==='visible'&&ch)ch.send('ask',{})};document.addEventListener('visibilitychange',vis);
-    timerT=setInterval(()=>{const el=$('#pTimer');if(el)el.textContent=left()},250);
+    let lastAsk=0;
+    timerT=setInterval(()=>{const el=$('#pTimer');if(el)el.textContent=left();
+      const now=Date.now();if(document.visibilityState==='visible'&&now-heard>10000&&now-lastAsk>5000){lastAsk=now;ch.send('ask',{});if(!S||!S.players[me.id])ch.send('hello',{id:me.id,name:me.name,team:me.team})}},250);
     cleanup=()=>{document.removeEventListener('visibilitychange',vis);clearInterval(timerT)};
   }
   const tName=t=>`${S.teams[t].emoji} ${esc(S.teams[t].name)}`;
@@ -710,10 +713,12 @@ async function hostMain(){
   let S=null,Q=[],R=[];
   app().innerHTML=`<div class="wrap"><p class="muted">Connecting to the TV…</p></div>`;
   try{[Q,R]=await Promise.all([loadQuestions(),loadResponses()])}catch(e){app().innerHTML=`<div class="wrap"><div class="card">Can't reach the database: ${esc(e.message)}</div></div>`;return}
-  const ch=joinChannel((ev,p)=>{if(ev==='state'){S=p;draw()}});
+  let heard=0,lastAsk=0;
+  const ch=joinChannel((ev,p)=>{if(ev==='state'){heard=Date.now();S=p;draw()}});
   ch.ready.then(()=>ch.send('ask',{}));
   const vis=()=>{if(document.visibilityState==='visible')ch.send('ask',{})};document.addEventListener('visibilitychange',vis);
-  cleanup=()=>document.removeEventListener('visibilitychange',vis);
+  const resync=setInterval(()=>{const now=Date.now();if(document.visibilityState==='visible'&&now-heard>10000&&now-lastAsk>5000){lastAsk=now;ch.send('ask',{})}},1000);
+  cleanup=()=>{document.removeEventListener('visibilitychange',vis);clearInterval(resync)};
   setTimeout(()=>{if(!S)app().innerHTML=`<div class="wrap"><div class="card"><b>Waiting for the TV…</b><p class="muted">Open the game on the TV browser and press Start. This screen will connect by itself.</p></div><a class="btn small" href="#admin">⚙️ Questions &amp; survey</a></div>`},2500);
   const send=(cmd,extra={})=>ch.send('cmd',{cmd,...extra});
   const pname=id=>S.players[id]?esc(S.players[id].name):'—';
@@ -772,6 +777,7 @@ async function hostMain(){
     if(c==='wgiveup'&&!confirm('Reveal the puzzle with no winner?'))return;
     if(c==='wover'&&S.w&&S.w.stage!=='bonusEnd'&&!confirm('End the Wheel and show the winner?'))return;
     if(c==='reveal')return send('reveal',{idx:+b.dataset.i});
+    if(c==='wfor')return send('wfor',{a:b.dataset.a,L:b.dataset.l});
     if(c==='award'){if(confirm('Give the bank to this team and end the round?'))send('award',{team:+b.dataset.t});return}
     if(c==='move')return send('move',{id:b.dataset.id,team:+b.dataset.t});
     if(c==='remove'){if(confirm('Remove this player?'))send('remove',{id:b.dataset.id});return}
